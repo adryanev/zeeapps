@@ -144,4 +144,120 @@ test.describe("Depot Tenang", () => {
     await expect(page).toHaveURL("/");
     expect(pageErrors).toEqual([]);
   });
+
+  test("completes the train Vehicle Journey with keyboard input", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Kereta aktif");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta sedang berjalan");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
+      timeout: 3_000,
+    });
+
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta kembali ke depot");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta tenang di depot", {
+      timeout: 3_000,
+    });
+  });
+
+  test("selects the train from its Resting Place with a pointer", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.82,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.45,
+    );
+
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Kereta aktif");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta sedang berjalan");
+  });
+
+  test("keeps rapid train input on one journey and gently recovers a carriage", async ({ page }) => {
+    const pageErrors: Error[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
+      timeout: 3_000,
+    });
+
+    await Promise.all(
+      Array.from({ length: 16 }, (_, index) => page.keyboard.press(index % 2 ? "Space" : "Enter")),
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta kembali ke depot");
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Kereta aktif");
+
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta tenang di depot", {
+      timeout: 3_000,
+    });
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("gently recovers a train carriage moved to an unreachable edge", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
+      timeout: 3_000,
+    });
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    const train = {
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.53,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.45,
+    };
+    await page.mouse.move(train.x, train.y);
+    await page.mouse.down();
+    await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
+
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta kembali perlahan", {
+      timeout: 3_000,
+    });
+    await page.mouse.up();
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
+      timeout: 3_000,
+    });
+  });
 });
