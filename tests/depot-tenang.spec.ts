@@ -402,7 +402,8 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
       timeout: 3_000,
     });
-    await page.waitForTimeout(2_000);
+    await page.clock.install();
+    await page.clock.runFor(2_000);
 
     const airplane = {
       x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.5,

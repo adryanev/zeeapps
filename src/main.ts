@@ -179,6 +179,7 @@ type DepotTenangGame = {
 let game: DepotTenangGame | undefined;
 let isGameLoading = false;
 let isGameReady = false;
+let isCompanionGateOpen = false;
 let gameLoadAttempt = 0;
 const pendingKeyboardInputs: string[] = [];
 const pendingPointerInputs: Array<{ clientX: number; clientY: number }> = [];
@@ -190,6 +191,15 @@ const keyboardCodes: Record<string, number> = {
   Space: 32,
   Enter: 13,
 };
+const gameplayKeyboardKeys = new Set([
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowUp",
+  "ArrowDown",
+  "Space",
+  " ",
+  "Enter",
+]);
 const serviceWorkerReady = registerServiceWorker();
 let audioContext: AudioContext | undefined;
 let audioOutput: GainNode | undefined;
@@ -199,13 +209,84 @@ installCompanionGate({
   keyboardTarget: window,
   leftTouchCorner: companionGateTouchLeft,
   rightTouchCorner: companionGateTouchRight,
+  isOpen: () => isCompanionGateOpen,
   onOpen: openCompanionGate,
 });
 
 window.addEventListener(
   "keydown",
   (event) => {
-    if (isGameReady || !["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Space", "Enter"].includes(event.key)) {
+    if (!isCompanionGateOpen) {
+      return;
+    }
+
+    if (isEventInsideCompanionGate(event) && !gameplayKeyboardKeys.has(event.key)) {
+      return;
+    }
+
+    if (isEventInsideCompanionGate(event) && isCompanionGateActivation(event)) {
+      const target = event.target;
+      if (target instanceof HTMLButtonElement) {
+        target.click();
+      }
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  },
+  true,
+);
+window.addEventListener(
+  "keyup",
+  (event) => {
+    if (!isCompanionGateOpen) {
+      return;
+    }
+
+    if (isEventInsideCompanionGate(event) && !gameplayKeyboardKeys.has(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  },
+  true,
+);
+
+for (const eventName of ["pointerdown", "pointermove", "pointerup", "pointercancel"] as const) {
+  window.addEventListener(
+    eventName,
+    (event) => {
+      if (!isCompanionGateOpen || isEventInsideCompanionGate(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    },
+    true,
+  );
+}
+
+for (const eventName of ["touchstart", "touchmove", "touchend", "touchcancel"] as const) {
+  window.addEventListener(
+    eventName,
+    (event) => {
+      if (!isCompanionGateOpen || isEventInsideCompanionGate(event)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    },
+    true,
+  );
+}
+
+window.addEventListener(
+  "keydown",
+  (event) => {
+    if (isGameReady || isCompanionGateOpen || !gameplayKeyboardKeys.has(event.key)) {
       return;
     }
 
@@ -456,11 +537,13 @@ function openCompanionGate(): void {
     return;
   }
 
+  isCompanionGateOpen = true;
   companionGate.hidden = false;
   companionGateContinue.focus();
 }
 
 function closeCompanionGate(): void {
+  isCompanionGateOpen = false;
   companionGate.hidden = true;
 }
 
@@ -498,6 +581,15 @@ function getSoundProfileVolume(soundProfile: SoundProfile): number {
   }
 
   return soundProfile === "normal" ? 0.8 : 0.45;
+}
+
+function isEventInsideCompanionGate(event: Event): boolean {
+  const target = event.target;
+  return target instanceof Node && companionGate.contains(target);
+}
+
+function isCompanionGateActivation(event: KeyboardEvent): boolean {
+  return event.key === "Enter" || event.key === " " || event.key === "Space";
 }
 
 function getRequiredElement<ElementType extends Element>(selector: string): ElementType {

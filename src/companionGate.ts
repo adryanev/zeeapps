@@ -4,6 +4,7 @@ type CompanionGateElements = {
   keyboardTarget: Window;
   leftTouchCorner: HTMLElement;
   rightTouchCorner: HTMLElement;
+  isOpen?: () => boolean;
   onOpen: () => void;
 };
 
@@ -31,6 +32,7 @@ export function installCompanionGate(elements: CompanionGateElements): () => voi
 
     if (heldKeys.has("Shift") && heldKeys.has("Enter")) {
       event.preventDefault();
+      event.stopImmediatePropagation();
       startKeyboardTimer();
     }
   };
@@ -117,7 +119,7 @@ export function installCompanionGate(elements: CompanionGateElements): () => voi
   };
 
   function startKeyboardTimer(): void {
-    if (keyboardGateOpened || keyboardTimer !== undefined) {
+    if (elements.isOpen?.() || keyboardGateOpened || keyboardTimer !== undefined) {
       return;
     }
 
@@ -157,7 +159,7 @@ export function installCompanionGate(elements: CompanionGateElements): () => voi
   }
 
   function startTouchTimer(): void {
-    if (touchGateOpened || touchTimer !== undefined || !hasBothTouchCorners()) {
+    if (elements.isOpen?.() || touchGateOpened || touchTimer !== undefined || !hasBothTouchCorners()) {
       return;
     }
 
