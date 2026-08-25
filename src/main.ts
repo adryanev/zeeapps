@@ -1,4 +1,3 @@
-import Phaser from "phaser";
 import "./styles.css";
 import {
   isSoundProfile,
@@ -8,11 +7,8 @@ import {
   type SoundProfile,
 } from "./companionSettings";
 import { installCompanionGate } from "./companionGate";
-import {
-  DepotTenangScene,
-  type DepotTenangFeedback,
-  type DepotTenangState,
-} from "./game/DepotTenangScene";
+import { registerServiceWorker } from "./registerServiceWorker";
+import type { DepotTenangFeedback, DepotTenangState } from "./game/depotTenangTypes";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -89,7 +85,21 @@ app.innerHTML = `
         tabindex="0"
         role="application"
         aria-label="Child Stage Depot Tenang. Tekan tombol atau ketuk untuk melihat kendaraan berjalan."
-      ></div>
+      >
+        <div class="game-loading" data-testid="game-loading" role="status" aria-live="polite" hidden>
+          <p class="eyebrow">Depot Tenang</p>
+          <p>Depot sedang disiapkan untuk bermain.</p>
+        </div>
+        <div class="game-load-error" data-testid="game-load-error" role="alert" hidden>
+          <p class="eyebrow">Depot Tenang</p>
+          <h2>Depot belum siap</h2>
+          <p>Companion, Depot belum bisa dibuka. Coba lagi atau kembali ke Playroom.</p>
+          <div class="game-load-error__actions">
+            <button class="primary-button" data-testid="game-load-retry" type="button">Coba lagi</button>
+            <button class="secondary-button" data-testid="game-load-return" type="button">Return to Playroom</button>
+          </div>
+        </div>
+      </div>
       <p class="portrait-guidance" data-testid="portrait-guidance" role="status">
         Putar perangkat ke posisi landscape untuk bermain lebih nyaman.
       </p>
@@ -121,6 +131,10 @@ const playroom = getRequiredElement<HTMLElement>("[data-testid='playroom']");
 const childStage = getRequiredElement<HTMLElement>("[data-testid='child-stage']");
 const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-tenang-card']");
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
+const gameLoading = getRequiredElement<HTMLElement>("[data-testid='game-loading']");
+const gameLoadError = getRequiredElement<HTMLElement>("[data-testid='game-load-error']");
+const gameLoadRetry = getRequiredElement<HTMLButtonElement>("[data-testid='game-load-retry']");
+const gameLoadReturn = getRequiredElement<HTMLButtonElement>("[data-testid='game-load-return']");
 const gameStatus = getRequiredElement<HTMLElement>("[data-testid='game-status']");
 const activeVehicle = getRequiredElement<HTMLElement>("[data-testid='active-vehicle']");
 const dioramaTime = getRequiredElement<HTMLElement>("[data-testid='diorama-time']");
@@ -158,7 +172,25 @@ reducedMotionInput.addEventListener("change", () => {
   saveCompanionSettings(companionSettings);
 });
 
-let game: Phaser.Game | undefined;
+type DepotTenangGame = {
+  destroy(removeCanvas?: boolean): void;
+};
+
+let game: DepotTenangGame | undefined;
+let isGameLoading = false;
+let isGameReady = false;
+let gameLoadAttempt = 0;
+const pendingKeyboardInputs: string[] = [];
+const pendingPointerInputs: Array<{ clientX: number; clientY: number }> = [];
+const keyboardCodes: Record<string, number> = {
+  ArrowRight: 39,
+  ArrowLeft: 37,
+  ArrowUp: 38,
+  ArrowDown: 40,
+  Space: 32,
+  Enter: 13,
+};
+const serviceWorkerReady = registerServiceWorker();
 let audioContext: AudioContext | undefined;
 let audioOutput: GainNode | undefined;
 let nextActionSoundAt = 0;
@@ -170,55 +202,142 @@ installCompanionGate({
   onOpen: openCompanionGate,
 });
 
+window.addEventListener(
+  "keydown",
+  (event) => {
+    if (isGameReady || !["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Space", "Enter"].includes(event.key)) {
+      return;
+    }
+
+    pendingKeyboardInputs.push(event.key);
+  },
+  true,
+);
+childStage.addEventListener(
+  "pointerdown",
+  (event) => {
+    if (isGameReady) {
+      return;
+    }
+
+    pendingPointerInputs.push({
+      clientX: event.clientX,
+      clientY: event.clientY,
+    });
+  },
+  true,
+);
+
 companionGateContinue.addEventListener("click", closeCompanionGate);
 companionGateReturn.addEventListener("click", returnToPlayroom);
+gameLoadRetry.addEventListener("click", () => {
+  void startDepotTenang();
+});
+gameLoadReturn.addEventListener("click", returnToPlayroom);
 
 startButton.addEventListener("click", () => {
-  if (game) {
+  void startDepotTenang();
+});
+
+async function startDepotTenang(): Promise<void> {
+  if (game || isGameLoading) {
     return;
   }
 
+  isGameLoading = true;
+  isGameReady = false;
   activateAudio(companionSettings.soundProfile);
   childStage.dataset.soundProfile = companionSettings.soundProfile;
   childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
   startButton.disabled = true;
   playroom.hidden = true;
   childStage.hidden = false;
-  gameStatus.textContent = "Depot sedang dibuka";
+  childStage.setAttribute("aria-busy", "true");
+  gameLoading.hidden = false;
+  gameLoadError.hidden = true;
+  gameStatus.textContent = "Depot Tenang sedang dimuat";
   updateDioramaTime(0);
   playCycleState.textContent = "Exploring";
 
-  game = new Phaser.Game({
-    type: Phaser.AUTO,
-    width: 960,
-    height: 540,
-    parent: gameMount,
-    backgroundColor: "#b8d9dc",
-    input: {
-      keyboard: true,
-    },
-    physics: {
-      default: "matter",
-      matter: {
-        gravity: { x: 0, y: 0.9 },
-        enableSleeping: true,
-        debug: false,
+  try {
+    await serviceWorkerReady;
+    const gameModule =
+      gameLoadAttempt === 0
+        ? import("./game/depotTenangGame")
+        : import("./game/depotTenangGameRetry");
+    gameLoadAttempt += 1;
+    const { createDepotTenangGame } = await gameModule;
+    let resolveGameStageReady: (() => void) | undefined;
+    const gameStageReady = new Promise<void>((resolve) => {
+      resolveGameStageReady = resolve;
+    });
+    game = await createDepotTenangGame({
+      parent: gameMount,
+      onStateChange: (state) => {
+        updateStageState(state);
+        if (state === "ready") {
+          resolveGameStageReady?.();
+        }
       },
-    },
-    scale: {
-      mode: Phaser.Scale.RESIZE,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-    },
-    scene: new DepotTenangScene({
-      onStateChange: updateStageState,
       onFeedback: updateStageFeedback,
       onActionAccepted: playActionSound,
       onJourneyComplete: updateDioramaTime,
       onPlayCycleComplete: enterQuietState,
       reducedMotion: companionSettings.reducedMotion,
-    }),
-  });
-});
+    });
+    await gameStageReady;
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+    isGameReady = true;
+    replayPendingInputs();
+    gameLoading.hidden = true;
+    gameLoadError.hidden = true;
+  } catch {
+    gameLoading.hidden = true;
+    gameLoadError.hidden = false;
+    gameStatus.textContent = "Depot belum siap. Coba lagi.";
+  } finally {
+    childStage.setAttribute("aria-busy", "false");
+    isGameLoading = false;
+  }
+}
+
+function replayPendingInputs(): void {
+  for (const key of pendingKeyboardInputs.splice(0)) {
+    const event = new KeyboardEvent("keydown", { bubbles: true, key });
+    Object.defineProperty(event, "keyCode", { value: keyboardCodes[key] });
+    Object.defineProperty(event, "which", { value: keyboardCodes[key] });
+    window.dispatchEvent(event);
+  }
+
+  const canvas = gameMount.querySelector<HTMLCanvasElement>("canvas");
+  if (!canvas) {
+    pendingPointerInputs.length = 0;
+    return;
+  }
+
+  for (const input of pendingPointerInputs.splice(0)) {
+    canvas.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: input.clientX,
+        clientY: input.clientY,
+      }),
+    );
+    canvas.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: input.clientX,
+        clientY: input.clientY,
+      }),
+    );
+  }
+}
 
 function updateStageState(state: DepotTenangState): void {
   const labels: Record<DepotTenangState, string> = {
@@ -349,9 +468,16 @@ function returnToPlayroom(): void {
   closeCompanionGate();
   game?.destroy(true);
   game = undefined;
+  isGameLoading = false;
+  isGameReady = false;
+  pendingKeyboardInputs.length = 0;
+  pendingPointerInputs.length = 0;
   childStage.hidden = true;
+  childStage.setAttribute("aria-busy", "false");
   playroom.hidden = false;
   startButton.disabled = false;
+  gameLoading.hidden = true;
+  gameLoadError.hidden = true;
   gameStatus.textContent = "Depot sedang dibuka";
   activeVehicle.textContent = "Belum ada kendaraan aktif";
   updateDioramaTime(0);

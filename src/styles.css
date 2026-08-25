@@ -311,6 +311,44 @@ h2 {
   height: 100% !important;
 }
 
+.game-loading,
+.game-load-error {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 28px;
+  background: rgba(255, 250, 241, 0.9);
+  color: #5d6d70;
+  text-align: center;
+}
+
+.game-loading[hidden],
+.game-load-error[hidden] {
+  display: none;
+}
+
+.game-loading p:last-child,
+.game-load-error > p:not(.eyebrow) {
+  max-width: 360px;
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.game-load-error h2 {
+  margin-bottom: 12px;
+}
+
+.game-load-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
 .portrait-guidance {
   display: none;
   position: absolute;
