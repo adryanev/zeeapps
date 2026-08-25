@@ -222,28 +222,44 @@ function updateStageState(state: DepotTenangState): void {
     "train-returning": "Kereta kembali ke depot",
     "train-quiet": "Kereta tenang di depot",
     "train-recovering": "Kereta kembali perlahan",
+    "airplane-taking-off": "Pesawat lepas landas",
+    "airplane-flying": "Pesawat terbang di koridor aman",
+    "airplane-returning": "Pesawat kembali ke hangar",
+    "airplane-quiet": "Pesawat tenang di hangar",
+    "airplane-recovering": "Pesawat kembali perlahan",
   };
 
   gameStatus.textContent = labels[state];
   const trainIsActive = state.startsWith("train-") && state !== "train-quiet";
-  const vehicleIsResting = state === "ready" || state === "quiet" || state === "train-quiet";
-  activeVehicle.textContent = trainIsActive
-    ? "Kereta aktif"
-    : vehicleIsResting
-      ? "Belum ada kendaraan aktif"
-      : "Truk aktif";
+  const airplaneIsActive =
+    state === "airplane-taking-off" ||
+    state === "airplane-flying" ||
+    state === "airplane-returning" ||
+    state === "airplane-recovering";
+  const vehicleIsResting =
+    state === "ready" || state === "quiet" || state === "train-quiet" || state === "airplane-quiet";
+  activeVehicle.textContent = airplaneIsActive
+    ? "Pesawat aktif"
+    : trainIsActive
+      ? "Kereta aktif"
+      : vehicleIsResting
+        ? "Belum ada kendaraan aktif"
+        : "Truk aktif";
 }
 
 function updateStageFeedback(feedback: DepotTenangFeedback): void {
-  const labels = {
+  const labels: Record<DepotTenangFeedback, string> = {
     "cargo-grabbed": "Muatan bergerak perlahan",
     "cargo-released": "Muatan dilepas dengan lembut",
     "cargo-recovered": "Muatan kembali perlahan",
     "train-grabbed": "Kereta bergerak perlahan",
     "train-released": "Kereta dilepas dengan lembut",
     "train-recovered": "Kereta kembali perlahan",
+    "airplane-grabbed": "Pesawat bergerak perlahan",
+    "airplane-released": "Pesawat dilepas dengan lembut",
+    "airplane-recovered": "Pesawat kembali perlahan",
     "quiet-response": "Depot tetap tenang",
-  } as const;
+  };
   gameStatus.textContent = labels[feedback];
 }
 

@@ -260,4 +260,95 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
   });
+
+  test("completes the airplane Vehicle Journey from the hangar", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.83,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.47,
+    );
+
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat lepas landas");
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+      timeout: 3_000,
+    });
+
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali ke hangar");
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat tenang di hangar", {
+      timeout: 3_000,
+    });
+  });
+
+  test("keeps rapid airplane input inside one safe journey", async ({ page }) => {
+    const pageErrors: Error[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.83,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.47,
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+      timeout: 3_000,
+    });
+
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) => page.keyboard.press(index % 2 ? "ArrowDown" : "ArrowUp")),
+    );
+
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali ke hangar");
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat tenang di hangar", {
+      timeout: 3_000,
+    });
+    await expect(page.locator("canvas")).toHaveCount(1);
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Belum ada kendaraan aktif");
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("gently recovers an airplane dragged beyond the flight corridor", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.83,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.47,
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+      timeout: 3_000,
+    });
+    await page.waitForTimeout(2_000);
+
+    const airplane = {
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.5,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.28,
+    };
+    await page.mouse.move(airplane.x, airplane.y);
+    await page.mouse.down();
+    await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
+
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali perlahan", {
+      timeout: 3_000,
+    });
+    await page.mouse.up();
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+      timeout: 3_000,
+    });
+  });
 });
