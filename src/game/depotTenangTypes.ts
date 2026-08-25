@@ -23,8 +23,10 @@ export type DepotTenangFeedback =
   | "train-grabbed"
   | "train-released"
   | "train-recovered"
+  | "train-sway"
   | "airplane-grabbed"
   | "airplane-released"
   | "airplane-recovered"
+  | "airplane-corridor"
   | "quiet-response"
   | "vehicle-selected";

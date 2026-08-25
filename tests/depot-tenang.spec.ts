@@ -454,6 +454,44 @@ test.describe("Depot Tenang", () => {
     });
   });
 
+  test("shows calm feedback when a grabbed carriage sways against its constraint", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
+      timeout: 3_000,
+    });
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    const carriage = {
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.35,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.45,
+    };
+    await page.mouse.move(carriage.x, carriage.y);
+    await page.mouse.down();
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta bergerak perlahan");
+    await page.mouse.move(carriage.x + (bounds?.width ?? 0) * 0.12, carriage.y + 60, {
+      steps: 12,
+    });
+
+    await expect(page.getByTestId("game-status")).toHaveText("Gerbong bergoyang lembut", {
+      timeout: 3_000,
+    });
+    await page.mouse.up();
+  });
+
   test("completes the airplane Vehicle Journey from the hangar", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
@@ -547,6 +585,42 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
       timeout: 3_000,
     });
+  });
+
+  test("shows calm feedback when the airplane reaches a safe-corridor bound", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.83,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.47,
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+      timeout: 3_000,
+    });
+    await page.clock.install();
+    await page.clock.runFor(2_000);
+
+    const airplane = {
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.5,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.35,
+    };
+    await page.mouse.move(airplane.x, airplane.y);
+    await page.mouse.down();
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat bergerak perlahan");
+    await page.mouse.move(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.1,
+      airplane.y,
+      { steps: 12 },
+    );
+
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat tetap di koridor aman", {
+      timeout: 3_000,
+    });
+    await page.mouse.up();
   });
 
   test.describe("touchscreen guidance", () => {

@@ -136,6 +136,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private trainCarriageBodies: MatterJS.BodyType[] = [];
   private trainCarriageVisuals = new Map<MatterJS.BodyType, Phaser.GameObjects.Container>();
   private trainConstraints: MatterJS.ConstraintType[] = [];
+  private trainSwayFeedbackShown = false;
   private cargoBodies: MatterJS.BodyType[] = [];
   private cargoVisuals = new Map<MatterJS.BodyType, Phaser.GameObjects.Rectangle>();
   private cargoRecoveryTargets = new Map<MatterJS.BodyType, { x: number; y: number }>();
@@ -175,6 +176,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private airplanePointerId?: number;
   private airplaneGrabTarget = { x: 0, y: 0 };
   private lastAirplaneMovementAt = 0;
+  private airplaneCorridorFeedbackShown = false;
   private completedJourneys = 0;
   private playCycleQuietEntered = false;
   private motionWatches = new Map<MatterJS.BodyType, MotionWatch>();
@@ -220,10 +222,12 @@ export class DepotTenangScene extends Phaser.Scene {
     this.updateTruckJourneyMovement();
     this.updateTrainSafety();
     this.updateGrabbedTrain();
+    this.updateTrainConstraintFeedback();
     this.updateTrainJourneyMovement();
     this.updateAirplaneSafety();
     this.updateAirplaneGrabbed();
     this.updateAirplaneJourneyMovement();
+    this.updateAirplaneCorridorFeedback();
     this.updateTruckStuckDetection();
     this.updateCargoStuckDetection();
     this.updateTrainStuckDetection();
@@ -1041,6 +1045,7 @@ export class DepotTenangScene extends Phaser.Scene {
     const takeoffPoint = this.getAirplaneTakeoffPoint();
     this.activeVehicle = "airplane";
     this.airplanePhase = "taking-off";
+    this.airplaneCorridorFeedbackShown = false;
     this.resetActivityBeats("airplane");
     this.airplaneFlightTarget = takeoffPoint;
     this.airplaneRecoveryTarget = undefined;
@@ -1210,6 +1215,49 @@ export class DepotTenangScene extends Phaser.Scene {
     );
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
     return false;
+  }
+
+  private updateAirplaneCorridorFeedback(): void {
+    if (
+      this.airplaneCorridorFeedbackShown ||
+      !this.airplaneBody ||
+      this.airplanePhase !== "flying" ||
+      this.airplanePointerId === undefined
+    ) {
+      return;
+    }
+
+    const corridor = this.getAirplaneFlightBounds();
+    const boundedTarget = this.airplaneFlightTarget;
+    const boundaryTargets = [
+      { x: corridor.minX + 24, y: boundedTarget.y },
+      { x: corridor.maxX - 24, y: boundedTarget.y },
+      { x: boundedTarget.x, y: corridor.minY + 24 },
+      { x: boundedTarget.x, y: corridor.maxY - 24 },
+    ];
+    const targetIsOnCorridorBoundary = boundaryTargets.some(
+      (boundaryTarget) =>
+        Phaser.Math.Distance.Between(
+          boundedTarget.x,
+          boundedTarget.y,
+          boundaryTarget.x,
+          boundaryTarget.y,
+        ) <= 0.5,
+    );
+    if (!targetIsOnCorridorBoundary) {
+      return;
+    }
+
+    const bodyHasReachedBound = Phaser.Math.Distance.Between(
+      this.airplaneBody.position.x,
+      this.airplaneBody.position.y,
+      boundedTarget.x,
+      boundedTarget.y,
+    ) <= 14;
+    if (bodyHasReachedBound) {
+      this.airplaneCorridorFeedbackShown = true;
+      this.onFeedback?.("airplane-corridor");
+    }
   }
 
   private updateAirplaneSafety(): void {
@@ -1472,6 +1520,7 @@ export class DepotTenangScene extends Phaser.Scene {
 
     this.activeVehicle = "train";
     this.trainPhase = "moving";
+    this.trainSwayFeedbackShown = false;
     this.resetActivityBeats("train");
     this.lastTrainMovementAt = this.time.now;
     this.wakeTrainBodies();
@@ -1634,42 +1683,57 @@ export class DepotTenangScene extends Phaser.Scene {
     });
   }
 
+  private updateGrabbedBodyPhysics(
+    body: MatterJS.BodyType,
+    target: { x: number; y: number },
+    maxSpeed: number,
+    maxAngularSpeed: number,
+  ): boolean {
+    const pointerTargetIsUnsafe =
+      target.x < 30 ||
+      target.x > this.getWorldWidth() - 30 ||
+      target.y < 30 ||
+      target.y > this.getWorldHeight() - 30;
+    if (pointerTargetIsUnsafe) {
+      return false;
+    }
+
+    const impulseScale = this.getPhysicsImpulseScale();
+    const xVelocity = this.clamp(
+      (target.x - body.position.x) * 0.16 * impulseScale,
+      -maxSpeed,
+      maxSpeed,
+    );
+    const yVelocity = this.clamp(
+      (target.y - body.position.y) * 0.16 * impulseScale,
+      -maxSpeed,
+      maxSpeed,
+    );
+    this.wakeBody(body);
+    this.matter.body.setVelocity(body, { x: xVelocity, y: yVelocity });
+    this.matter.body.setAngularVelocity(
+      body,
+      this.clamp(-body.angle * 0.12 * impulseScale, -maxAngularSpeed, maxAngularSpeed),
+    );
+    return true;
+  }
+
   private updateGrabbedCargo(): void {
     if (!this.grabbedCargo || this.cargoRecoveryTargets.has(this.grabbedCargo)) {
       return;
     }
 
-    const pointerTargetIsUnsafe =
-      this.grabTarget.x < 30 ||
-      this.grabTarget.x > this.getWorldWidth() - 30 ||
-      this.grabTarget.y < 30 ||
-      this.grabTarget.y > this.getWorldHeight() - 30;
-    if (pointerTargetIsUnsafe) {
-      this.beginCargoRecovery(this.grabbedCargo);
-      return;
-    }
-
-    const impulseScale = this.getPhysicsImpulseScale();
-    const xVelocity = this.clamp(
-      (this.grabTarget.x - this.grabbedCargo.position.x) * 0.16 * impulseScale,
-      -CARGO_MAX_SPEED,
-      CARGO_MAX_SPEED,
-    );
-    const yVelocity = this.clamp(
-      (this.grabTarget.y - this.grabbedCargo.position.y) * 0.16 * impulseScale,
-      -CARGO_MAX_SPEED,
-      CARGO_MAX_SPEED,
-    );
-    this.wakeBody(this.grabbedCargo);
-    this.matter.body.setVelocity(this.grabbedCargo, { x: xVelocity, y: yVelocity });
-    this.matter.body.setAngularVelocity(
-      this.grabbedCargo,
-      this.clamp(
-        -this.grabbedCargo.angle * 0.12 * impulseScale,
-        -CARGO_MAX_ANGULAR_SPEED,
+    const grabbedCargo = this.grabbedCargo;
+    if (
+      !this.updateGrabbedBodyPhysics(
+        grabbedCargo,
+        this.grabTarget,
+        CARGO_MAX_SPEED,
         CARGO_MAX_ANGULAR_SPEED,
-      ),
-    );
+      )
+    ) {
+      this.beginCargoRecovery(grabbedCargo);
+    }
   }
 
   private updateGrabbedTrain(): void {
@@ -1677,37 +1741,16 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    const pointerTargetIsUnsafe =
-      this.trainGrabTarget.x < 30 ||
-      this.trainGrabTarget.x > this.getWorldWidth() - 30 ||
-      this.trainGrabTarget.y < 30 ||
-      this.trainGrabTarget.y > this.getWorldHeight() - 30;
-    if (pointerTargetIsUnsafe) {
-      this.beginTrainRecovery();
-      return;
-    }
-
-    const impulseScale = this.getPhysicsImpulseScale();
-    const xVelocity = this.clamp(
-      (this.trainGrabTarget.x - this.trainGrabbedBody.position.x) * 0.12 * impulseScale,
-      -TRAIN_MAX_SPEED,
-      TRAIN_MAX_SPEED,
-    );
-    const yVelocity = this.clamp(
-      (this.trainGrabTarget.y - this.trainGrabbedBody.position.y) * 0.12 * impulseScale,
-      -TRAIN_MAX_SPEED,
-      TRAIN_MAX_SPEED,
-    );
-    this.wakeBody(this.trainGrabbedBody);
-    this.matter.body.setVelocity(this.trainGrabbedBody, { x: xVelocity, y: yVelocity });
-    this.matter.body.setAngularVelocity(
-      this.trainGrabbedBody,
-      this.clamp(
-        -this.trainGrabbedBody.angle * 0.12 * impulseScale,
-        -TRAIN_MAX_ANGULAR_SPEED,
+    if (
+      !this.updateGrabbedBodyPhysics(
+        this.trainGrabbedBody,
+        this.trainGrabTarget,
+        TRAIN_MAX_SPEED,
         TRAIN_MAX_ANGULAR_SPEED,
-      ),
-    );
+      )
+    ) {
+      this.beginTrainRecovery();
+    }
   }
 
   private updateTruckStuckDetection(): void {
@@ -1921,6 +1964,46 @@ export class DepotTenangScene extends Phaser.Scene {
       x: this.clamp((this.truckRecoveryTarget.x - position.x) * 0.12, -2, 2),
       y: this.clamp((this.truckRecoveryTarget.y - position.y) * 0.12, -2, 2),
     });
+  }
+
+  private updateTrainConstraintFeedback(): void {
+    if (
+      this.trainSwayFeedbackShown ||
+      !this.trainGrabbedBody ||
+      this.trainRecoveryActive ||
+      this.trainConstraints.length === 0
+    ) {
+      return;
+    }
+
+    const carriageIndex = this.trainCarriageBodies.indexOf(this.trainGrabbedBody);
+    const connectedBody =
+      carriageIndex === 0
+        ? this.trainBody
+        : carriageIndex > 0
+          ? this.trainCarriageBodies[carriageIndex - 1]
+          : undefined;
+    if (!connectedBody) {
+      return;
+    }
+
+    const carriage = this.trainGrabbedBody;
+    const distance = Phaser.Math.Distance.Between(
+      connectedBody.position.x,
+      connectedBody.position.y,
+      carriage.position.x,
+      carriage.position.y,
+    );
+    const distanceShowsConstraintLoad =
+      distance > TRAIN_CARRIAGE_GAP + 8 && distance < TRAIN_CARRIAGE_GAP * 4;
+    const carriageShowsSway =
+      Math.abs(carriage.position.y - connectedBody.position.y) > 8 ||
+      Math.abs(carriage.angle) > 0.08;
+
+    if (distanceShowsConstraintLoad || carriageShowsSway) {
+      this.trainSwayFeedbackShown = true;
+      this.onFeedback?.("train-sway");
+    }
   }
 
   private updateTrainSafety(): void {
