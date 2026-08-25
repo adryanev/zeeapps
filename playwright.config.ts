@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { parsePlaywrightPort } from "./playwright-port";
 
-const previewPort = process.env.PLAYWRIGHT_PORT ?? "4173";
+const previewPort = parsePlaywrightPort(process.env.PLAYWRIGHT_PORT);
 
 export default defineConfig({
   testDir: "./tests",

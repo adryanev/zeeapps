@@ -1,23 +1,36 @@
-export const SERVICE_WORKER_VERSION = "1";
+export const SERVICE_WORKER_VERSION = __DUNIA_ZEE_BUILD_VERSION__;
 
-export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | undefined> {
+const SERVICE_WORKER_READY_TIMEOUT_MS = 5_000;
+
+export type ServiceWorkerStatus =
+  | { supported: false; registration?: undefined; error?: undefined }
+  | { supported: true; registration: ServiceWorkerRegistration; error?: undefined }
+  | { supported: true; registration?: ServiceWorkerRegistration; error: Error };
+
+export async function registerServiceWorker(): Promise<ServiceWorkerStatus> {
   if (!("serviceWorker" in navigator)) {
-    return undefined;
+    return { supported: false };
   }
 
   try {
-    const controllerReady = waitForController();
-    const registration = await navigator.serviceWorker.register(
-      `/service-worker.js?v=${SERVICE_WORKER_VERSION}`,
-      { scope: "/" },
+    const registration = await withTimeout(
+      navigator.serviceWorker.register(`/service-worker.js?v=${SERVICE_WORKER_VERSION}`, {
+        scope: "/",
+      }),
+      SERVICE_WORKER_READY_TIMEOUT_MS,
+      "Service-worker registration timed out.",
     );
-    await navigator.serviceWorker.ready;
+    await withTimeout(
+      navigator.serviceWorker.ready,
+      SERVICE_WORKER_READY_TIMEOUT_MS,
+      "Service-worker readiness timed out.",
+    );
     if (!navigator.serviceWorker.controller) {
-      await controllerReady;
+      await waitForController();
     }
-    return registration;
-  } catch {
-    return undefined;
+    return { supported: true, registration };
+  } catch (error) {
+    return { supported: true, error: toError(error) };
   }
 }
 
@@ -26,25 +39,33 @@ function waitForController(): Promise<void> {
     return Promise.resolve();
   }
 
-  return new Promise<void>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     let settled = false;
-    let pollTimer: number;
-    let timeoutTimer: number;
+    let pollTimer: number | undefined;
+    let timeoutTimer: number | undefined;
 
-    const handleControllerChange = (): void => {
-      settle();
-    };
-
-    const settle = (): void => {
+    const settle = (error?: Error): void => {
       if (settled) {
         return;
       }
 
       settled = true;
-      window.clearInterval(pollTimer);
-      window.clearTimeout(timeoutTimer);
+      if (pollTimer !== undefined) {
+        window.clearInterval(pollTimer);
+      }
+      if (timeoutTimer !== undefined) {
+        window.clearTimeout(timeoutTimer);
+      }
       navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
-      resolve();
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    };
+
+    const handleControllerChange = (): void => {
+      settle();
     };
 
     pollTimer = window.setInterval(() => {
@@ -52,10 +73,48 @@ function waitForController(): Promise<void> {
         settle();
       }
     }, 25);
-    timeoutTimer = window.setTimeout(settle, 2_000);
+    timeoutTimer = window.setTimeout(
+      () => settle(new Error("Service-worker controller change timed out.")),
+      SERVICE_WORKER_READY_TIMEOUT_MS,
+    );
     navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
     if (navigator.serviceWorker.controller) {
       settle();
     }
   });
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timeoutTimer = window.setTimeout(() => {
+      settled = true;
+      reject(new Error(message));
+    }, timeoutMs);
+
+    void promise.then(
+      (value) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        window.clearTimeout(timeoutTimer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        window.clearTimeout(timeoutTimer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
 }
