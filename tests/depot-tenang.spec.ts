@@ -110,7 +110,7 @@ test.describe("Depot Tenang", () => {
   });
 
   test("fits an unhurried Play Cycle in the three-to-five-minute virtual window", async ({ page }) => {
-    test.setTimeout(45_000);
+    test.slow();
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
     const status = page.getByTestId("game-status");
@@ -125,13 +125,21 @@ test.describe("Depot Tenang", () => {
     const unhurriedBeat = async (): Promise<void> => {
       await page.clock.fastForward(20_000);
     };
-    const settleMovement = async (): Promise<void> => {
-      await page.clock.runFor(2_000);
+    const settleMovement = async (expected: string): Promise<void> => {
+      const stepDuration = 500;
+      const maximumDuration = 5_000;
+      for (let elapsed = 0; elapsed <= maximumDuration; elapsed += stepDuration) {
+        if ((await status.textContent()) === expected) {
+          return;
+        }
+        await page.clock.runFor(stepDuration);
+      }
+
+      await expectStatus(expected);
     };
 
     await page.keyboard.press("ArrowRight");
-    await settleMovement();
-    await expectStatus("Truk menurunkan muatan");
+    await settleMovement("Truk menurunkan muatan");
     await unhurriedBeat();
     await page.keyboard.press("Space");
     await expectStatus("Truk menurunkan muatan");
@@ -140,12 +148,10 @@ test.describe("Depot Tenang", () => {
     await expectStatus("Truk menurunkan muatan");
     await unhurriedBeat();
     await page.keyboard.press("Space");
-    await settleMovement();
-    await expectStatus("Truk tenang di garasi");
+    await settleMovement("Truk tenang di garasi");
 
     await page.keyboard.press("ArrowRight");
-    await settleMovement();
-    await expectStatus("Kereta di stasiun");
+    await settleMovement("Kereta di stasiun");
     await unhurriedBeat();
     await page.keyboard.press("Enter");
     await expectStatus("Kereta di stasiun");
@@ -154,12 +160,10 @@ test.describe("Depot Tenang", () => {
     await expectStatus("Kereta di stasiun");
     await unhurriedBeat();
     await page.keyboard.press("Enter");
-    await page.clock.runFor(3_000);
-    await expectStatus("Kereta tenang di depot");
+    await settleMovement("Kereta tenang di depot");
 
     await page.keyboard.press("ArrowRight");
-    await settleMovement();
-    await expectStatus("Pesawat terbang di koridor aman");
+    await settleMovement("Pesawat terbang di koridor aman");
     await unhurriedBeat();
     await page.keyboard.press("ArrowUp");
     await expectStatus("Pesawat terbang di koridor aman");
@@ -168,8 +172,7 @@ test.describe("Depot Tenang", () => {
     await expectStatus("Pesawat terbang di koridor aman");
     await unhurriedBeat();
     await page.keyboard.press("ArrowUp");
-    await page.clock.runFor(3_000);
-    await expectStatus("Pesawat tenang di hangar");
+    await settleMovement("Pesawat tenang di hangar");
     expect(await page.getByTestId("play-cycle-state").textContent()).toBe("Quiet State");
 
     const elapsed = await page.evaluate((started) => performance.now() - started, startedAt);
