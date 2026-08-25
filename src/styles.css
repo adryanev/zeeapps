@@ -21,7 +21,8 @@ body,
 
 body {
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #f5ede1;
 }
 
@@ -239,8 +240,10 @@ h2 {
   grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   height: 100vh;
-  min-height: 420px;
+  height: 100dvh;
+  min-height: 320px;
   background: #b8d9dc;
+  touch-action: none;
 }
 
 .child-stage[hidden] {
@@ -289,14 +292,35 @@ h2 {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 420px;
-  touch-action: manipulation;
+  min-height: 0;
+  touch-action: none;
 }
 
 .game-mount canvas {
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+.portrait-guidance {
+  display: none;
+  position: absolute;
+  z-index: 15;
+  right: 20px;
+  bottom: 20px;
+  left: 20px;
+  margin: 0 auto;
+  width: min(100% - 40px, 460px);
+  padding: 12px 16px;
+  border: 1px solid rgba(53, 68, 76, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 250, 241, 0.9);
+  box-shadow: 0 8px 22px rgba(53, 68, 76, 0.08);
+  color: #5d6d70;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  pointer-events: none;
+  text-align: center;
 }
 
 .companion-gate-touch {
@@ -385,6 +409,12 @@ h2 {
 
   .game-card__art {
     min-height: 100%;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 600px) {
+  .portrait-guidance {
+    display: block;
   }
 }
 

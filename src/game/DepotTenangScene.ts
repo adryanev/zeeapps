@@ -12,7 +12,19 @@ export type DepotTenangFeedback =
   | "cargo-grabbed"
   | "cargo-released"
   | "cargo-recovered"
-  | "quiet-response";
+  | "quiet-response"
+  | "vehicle-selected";
+
+/**
+ * Equivalent Input normalizes keyboard and pointer actions into these Game intentions:
+ * advance a Vehicle Journey, select a vehicle at its Resting Place, or optionally Soft Grab cargo.
+ */
+type GameIntention = "advance-vehicle-journey" | "select-resting-place" | "soft-grab";
+
+type PointerDownIntention =
+  | { type: "advance-vehicle-journey" }
+  | { type: "select-resting-place" }
+  | { type: "soft-grab"; cargo: MatterJS.BodyType };
 
 type DepotTenangCallbacks = {
   onStateChange: (state: DepotTenangState) => void;
@@ -73,6 +85,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private grabTarget = { x: 0, y: 0 };
   private grabStart = { x: 0, y: 0 };
   private grabStartedAt = 0;
+  private activeTouchId?: number;
   private truckRecoveryTarget?: { x: number; y: number };
   private cargoRecoveryActive = false;
   private lastTruckMovementAt = 0;
@@ -343,32 +356,64 @@ export class DepotTenangScene extends Phaser.Scene {
     this.layoutDiorama();
   }
 
-  private handleKeyboard(event: KeyboardEvent): void {
+  private normalizeKeyboardIntent(event: KeyboardEvent): GameIntention | undefined {
     if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
-      return;
+      return undefined;
     }
 
-    this.advanceTruckJourney();
+    return "advance-vehicle-journey";
+  }
+
+  private handleKeyboard(event: KeyboardEvent): void {
+    const intention = this.normalizeKeyboardIntent(event);
+    if (intention === "advance-vehicle-journey") {
+      this.advanceTruckJourney();
+    }
+  }
+
+  private normalizePointerDownIntent(pointer: Phaser.Input.Pointer): PointerDownIntention {
+    if (this.truckPhase === "cargo") {
+      const cargo = this.findCargoAt(pointer.x, pointer.y);
+      if (cargo) {
+        return { type: "soft-grab", cargo };
+      }
+    }
+
+    if (this.truckPhase === "ready" && this.isAtTruckRestingPlace(pointer.x, pointer.y)) {
+      return { type: "select-resting-place" };
+    }
+
+    return { type: "advance-vehicle-journey" };
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (!this.claimTouch(pointer)) {
+      return;
+    }
+
     if (this.grabbedCargo || this.cargoRecoveryActive || this.truckRecoveryTarget) {
       return;
     }
 
-    if (this.truckPhase === "cargo") {
-      const cargo = this.findCargoAt(pointer.x, pointer.y);
+    const intention = this.normalizePointerDownIntent(pointer);
+    if (intention.type === "soft-grab") {
+      this.beginCargoGrab(intention.cargo, pointer);
+      return;
+    }
 
-      if (cargo) {
-        this.beginCargoGrab(cargo, pointer);
-        return;
-      }
+    if (intention.type === "select-resting-place") {
+      this.onFeedback?.("vehicle-selected");
+      return;
     }
 
     this.advanceTruckJourney();
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    if (this.isTouchPointer(pointer) && this.activeTouchId !== pointer.id) {
+      return;
+    }
+
     if (!this.grabbedCargo || this.grabPointerId !== pointer.id) {
       return;
     }
@@ -378,6 +423,14 @@ export class DepotTenangScene extends Phaser.Scene {
   }
 
   private handlePointerUp(pointer: Phaser.Input.Pointer): void {
+    if (this.isTouchPointer(pointer)) {
+      if (this.activeTouchId !== pointer.id) {
+        return;
+      }
+
+      this.activeTouchId = undefined;
+    }
+
     if (!this.grabbedCargo || this.grabPointerId !== pointer.id) {
       return;
     }
@@ -485,6 +538,38 @@ export class DepotTenangScene extends Phaser.Scene {
     this.grabStartedAt = this.time.now;
     this.matter.body.setAngularVelocity(cargo, 0);
     this.onFeedback?.("cargo-grabbed");
+  }
+
+  private claimTouch(pointer: Phaser.Input.Pointer): boolean {
+    if (!this.isTouchPointer(pointer)) {
+      return true;
+    }
+
+    if (this.activeTouchId !== undefined) {
+      return false;
+    }
+
+    this.activeTouchId = pointer.id;
+    return true;
+  }
+
+  private isTouchPointer(pointer: Phaser.Input.Pointer): boolean {
+    const event = pointer.event as TouchEvent & { pointerType?: string };
+    return event.type.startsWith("touch") || event.pointerType === "touch";
+  }
+
+  private isAtTruckRestingPlace(x: number, y: number): boolean {
+    const roadY = Math.min(ROAD_Y, this.getWorldHeight() * 0.75);
+    const restingPlace = {
+      x: this.getWorldWidth() * TRUCK_START_RATIO,
+      y: roadY - 58,
+    };
+    const forgivingRadius = Math.max(
+      86,
+      Math.min(this.getWorldWidth(), this.getWorldHeight()) * 0.16,
+    );
+
+    return Math.hypot(x - restingPlace.x, y - restingPlace.y) <= forgivingRadius;
   }
 
   private findCargoAt(x: number, y: number): MatterJS.BodyType | undefined {

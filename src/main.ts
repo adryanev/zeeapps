@@ -88,6 +88,9 @@ app.innerHTML = `
         role="application"
         aria-label="Child Stage Depot Tenang. Tekan tombol atau ketuk untuk melihat truk berjalan."
       ></div>
+      <p class="portrait-guidance" data-testid="portrait-guidance" role="status">
+        Putar perangkat ke posisi landscape untuk bermain lebih nyaman.
+      </p>
       <div class="companion-gate-touch companion-gate-touch--left" data-testid="companion-gate-touch-left" aria-hidden="true"></div>
       <div class="companion-gate-touch companion-gate-touch--right" data-testid="companion-gate-touch-right" aria-hidden="true"></div>
       <section
@@ -224,13 +227,18 @@ function updateStageState(state: DepotTenangState): void {
 }
 
 function updateStageFeedback(feedback: DepotTenangFeedback): void {
-  const labels = {
+  const labels: Record<DepotTenangFeedback, string> = {
     "cargo-grabbed": "Muatan bergerak perlahan",
     "cargo-released": "Muatan dilepas dengan lembut",
     "cargo-recovered": "Muatan kembali perlahan",
     "quiet-response": "Depot tetap tenang",
-  } as const;
+    "vehicle-selected": "Truk menunggu di garasi",
+  };
+
   gameStatus.textContent = labels[feedback];
+  if (feedback === "vehicle-selected") {
+    activeVehicle.textContent = "Truk aktif";
+  }
 }
 
 function activateAudio(soundProfile: SoundProfile): void {
