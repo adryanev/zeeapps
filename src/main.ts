@@ -505,9 +505,11 @@ function updateStageFeedback(feedback: DepotTenangFeedback): void {
     "train-grabbed": "Kereta bergerak perlahan",
     "train-released": "Kereta dilepas dengan lembut",
     "train-recovered": "Kereta kembali perlahan",
+    "train-sway": "Gerbong bergoyang lembut",
     "airplane-grabbed": "Pesawat bergerak perlahan",
     "airplane-released": "Pesawat dilepas dengan lembut",
     "airplane-recovered": "Pesawat kembali perlahan",
+    "airplane-corridor": "Pesawat tetap di koridor aman",
     "quiet-response": "Depot tetap tenang",
     "vehicle-selected": "Truk menunggu di garasi",
   };
