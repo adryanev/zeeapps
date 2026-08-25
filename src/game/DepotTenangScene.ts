@@ -60,7 +60,15 @@ const AIRPLANE_FLIGHT_SPEED = 3.2;
 const AIRPLANE_MAX_SPEED = 5;
 const AIRPLANE_MAX_TILT = 0.32;
 const AIRPLANE_GRAB_RADIUS = 88;
-const AIRPLANE_FLIGHT_INPUTS = 2;
+/**
+ * Each vehicle offers three calm activity beats: one for each cargo piece,
+ * train body, or flight waypoint. Nine explorer-led beats at an unhurried
+ * toddler pace provide the intended three-to-five-minute Play Cycle: the
+ * calibration assumes about 20 seconds of looking, talking, or touching per
+ * beat, before the authored vehicle movement is included. This is an
+ * interaction-count assumption, not a countdown or a forced wait.
+ */
+const ACTIVITY_BEATS_PER_JOURNEY = 3;
 const AIRPLANE_FLIGHT_MIN_Y_RATIO = 0.14;
 const AIRPLANE_FLIGHT_MAX_Y_RATIO = 0.56;
 const AIRPLANE_FLIGHT_MIN_X_RATIO = 0.2;
@@ -105,6 +113,7 @@ const DIORAMA_TIME_PALETTES = [
 type ActiveVehicle = "none" | "truck" | "train" | "airplane";
 type TrainPhase = "ready" | "moving" | "station" | "returning" | "quiet";
 type AirplanePhase = "ready" | "taking-off" | "flying" | "returning" | "quiet" | "recovering";
+type ActivityVehicle = "truck" | "train" | "airplane";
 type MotionWatch = {
   position: { x: number; y: number };
   target: { x: number; y: number };
@@ -155,7 +164,11 @@ export class DepotTenangScene extends Phaser.Scene {
   private airplaneVisual?: Phaser.GameObjects.Container;
   private airplaneBody?: MatterJS.BodyType;
   private airplanePhase: AirplanePhase = "ready";
-  private airplaneFlightInputCount = 0;
+  private activityBeats: Record<ActivityVehicle, number> = {
+    truck: 0,
+    train: 0,
+    airplane: 0,
+  };
   private airplaneFlightTarget = { x: 0, y: 0 };
   private airplaneRecoveryTarget?: { x: number; y: number };
   private airplaneRecoveryResumePhase: AirplanePhase = "flying";
@@ -903,6 +916,18 @@ export class DepotTenangScene extends Phaser.Scene {
     this.onFeedback?.("airplane-released");
   }
 
+  private advanceActivityBeat(vehicle: ActivityVehicle): number {
+    this.activityBeats[vehicle] = Math.min(
+      this.activityBeats[vehicle] + 1,
+      ACTIVITY_BEATS_PER_JOURNEY,
+    );
+    return this.activityBeats[vehicle];
+  }
+
+  private resetActivityBeats(vehicle: ActivityVehicle): void {
+    this.activityBeats[vehicle] = 0;
+  }
+
   private advanceJourney(key = "", preferredVehicle?: "truck" | "train" | "airplane"): void {
     if (this.activeVehicle === "truck") {
       this.advanceTruckJourney();
@@ -960,7 +985,11 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (this.truckPhase === "cargo" && !this.cargoRecoveryActive) {
-      this.startTruckReturn();
+      if (this.advanceActivityBeat("truck") >= ACTIVITY_BEATS_PER_JOURNEY) {
+        this.startTruckReturn();
+      } else {
+        this.onActionAccepted?.();
+      }
       return;
     }
 
@@ -976,7 +1005,11 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (this.trainPhase === "station" && !this.trainRecoveryActive) {
-      this.startTrainReturn();
+      if (this.advanceActivityBeat("train") >= ACTIVITY_BEATS_PER_JOURNEY) {
+        this.startTrainReturn();
+      } else {
+        this.onActionAccepted?.();
+      }
       return;
     }
 
@@ -1008,7 +1041,7 @@ export class DepotTenangScene extends Phaser.Scene {
     const takeoffPoint = this.getAirplaneTakeoffPoint();
     this.activeVehicle = "airplane";
     this.airplanePhase = "taking-off";
-    this.airplaneFlightInputCount = 0;
+    this.resetActivityBeats("airplane");
     this.airplaneFlightTarget = takeoffPoint;
     this.airplaneRecoveryTarget = undefined;
     this.lastAirplaneMovementAt = this.time.now;
@@ -1038,7 +1071,7 @@ export class DepotTenangScene extends Phaser.Scene {
         ? -1
         : key === "ArrowDown" || key.toLowerCase() === "s"
           ? 1
-          : this.airplaneFlightInputCount === 0
+          : this.activityBeats.airplane === 0
             ? -1
             : 1;
     const horizontalDirection =
@@ -1047,7 +1080,7 @@ export class DepotTenangScene extends Phaser.Scene {
         : key === "ArrowRight" || key.toLowerCase() === "d"
           ? 1
           : 0;
-    const nextInputCount = this.airplaneFlightInputCount + 1;
+    const nextInputCount = this.advanceActivityBeat("airplane");
 
     this.airplaneFlightTarget = {
       x: this.clamp(
@@ -1065,8 +1098,7 @@ export class DepotTenangScene extends Phaser.Scene {
       this.resetMotionWatch(this.airplaneBody, this.airplaneFlightTarget);
     }
 
-    this.airplaneFlightInputCount = nextInputCount;
-    if (nextInputCount >= AIRPLANE_FLIGHT_INPUTS) {
+    if (nextInputCount >= ACTIVITY_BEATS_PER_JOURNEY) {
       this.startAirplaneReturn();
       return;
     }
@@ -1102,7 +1134,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.airplanePointerId = undefined;
     this.airplaneRecoveryTarget = undefined;
     this.airplanePhase = "quiet";
-    this.airplaneFlightInputCount = 0;
+    this.resetActivityBeats("airplane");
     this.activeVehicle = "none";
     this.completeJourney();
     this.onStateChange("airplane-quiet");
@@ -1131,7 +1163,6 @@ export class DepotTenangScene extends Phaser.Scene {
       if (this.moveAirplaneTowards(this.getAirplaneTakeoffPoint(), AIRPLANE_SPEED)) {
         this.airplanePhase = "flying";
         this.airplaneFlightTarget = this.getAirplaneFlightCenter();
-        this.airplaneFlightInputCount = 0;
         this.onStateChange("airplane-flying");
       }
       return;
@@ -1380,6 +1411,7 @@ export class DepotTenangScene extends Phaser.Scene {
 
     this.activeVehicle = "truck";
     this.truckPhase = "moving";
+    this.resetActivityBeats("truck");
     this.lastTruckMovementAt = this.time.now;
     this.wakeBody(this.truckBody);
     this.matter.body.setVelocity(this.truckBody, { x: TRUCK_SPEED, y: 0 });
@@ -1440,6 +1472,7 @@ export class DepotTenangScene extends Phaser.Scene {
 
     this.activeVehicle = "train";
     this.trainPhase = "moving";
+    this.resetActivityBeats("train");
     this.lastTrainMovementAt = this.time.now;
     this.wakeTrainBodies();
     this.matter.body.setVelocity(this.trainBody, { x: -TRAIN_SPEED, y: 0 });
