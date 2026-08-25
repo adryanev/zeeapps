@@ -288,6 +288,15 @@ h2 {
   font-weight: 800;
 }
 
+.diorama-time,
+.play-cycle-state {
+  color: #5d6d70;
+}
+
+.play-cycle-state {
+  font-weight: 800;
+}
+
 .game-mount {
   position: relative;
   width: 100%;
