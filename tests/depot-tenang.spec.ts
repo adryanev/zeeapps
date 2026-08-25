@@ -31,6 +31,99 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
   });
 
+  test("completes the truck Vehicle Journey without dragging", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+    await page.keyboard.press("ArrowRight");
+
+    await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+
+    await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
+
+    await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+  });
+
+  test("uses Soft Grab for optional cargo exploration", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    const cargo = { x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.42, y: (bounds?.y ?? 0) + 300 };
+    await page.mouse.move(cargo.x, cargo.y);
+    await page.mouse.down();
+    await expect(page.getByTestId("game-status")).toHaveText("Muatan bergerak perlahan");
+    await page.mouse.move(cargo.x + 85, cargo.y - 40, { steps: 8 });
+    await page.mouse.up();
+
+    await expect(page.getByTestId("game-status")).toHaveText("Muatan dilepas dengan lembut");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
+  });
+
+  test("gently recovers cargo moved to an unreachable edge", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    const cargo = { x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.42, y: (bounds?.y ?? 0) + 300 };
+    await page.mouse.move(cargo.x, cargo.y);
+    await page.mouse.down();
+    await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
+
+    await expect(page.getByTestId("game-status")).toHaveText("Muatan kembali perlahan", {
+      timeout: 3_000,
+    });
+    await page.mouse.up();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+  });
+
+  test("locks rapid input to one truck step at a time", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+    await page.keyboard.press("ArrowRight");
+    await Promise.all(
+      Array.from({ length: 12 }, (_, index) => page.keyboard.press(index % 2 ? "Space" : "Enter")),
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+
+    await Promise.all(Array.from({ length: 12 }, () => page.keyboard.press("ArrowRight")));
+    await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+  });
+
   test("keeps one Active Vehicle during repeated and random input", async ({ page }) => {
     const pageErrors: Error[] = [];
     page.on("pageerror", (error) => pageErrors.push(error));
