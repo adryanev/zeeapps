@@ -55,6 +55,54 @@ test.describe("Dunia Zee PWA", () => {
     await expect(page.getByTestId("game-load-error")).toBeHidden();
   });
 
+  test("shows a recoverable warning when service-worker registration fails", async ({ page }) => {
+    await page.addInitScript(() => {
+      const serviceWorkerContainer = navigator.serviceWorker;
+      const originalRegister = serviceWorkerContainer.register.bind(serviceWorkerContainer);
+      let shouldFail = true;
+      Object.defineProperty(serviceWorkerContainer, "register", {
+        configurable: true,
+        value: (...args: Parameters<ServiceWorkerContainer["register"]>) => {
+          if (shouldFail) {
+            shouldFail = false;
+            return Promise.reject(new Error("service worker unavailable"));
+          }
+
+          return originalRegister(...args);
+        },
+      });
+    });
+    await page.goto("/");
+
+    await expect(page.getByTestId("service-worker-error")).toBeVisible();
+    await expect(page.getByTestId("service-worker-error")).toContainText("Offline");
+
+    await page.getByTestId("service-worker-retry").click();
+    await expect(page.getByTestId("service-worker-error")).toBeHidden();
+  });
+
+  test("returns a visible recoverable response when an uncached resource cannot load", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/");
+    await waitForServiceWorker(page);
+    await context.setOffline(true);
+
+    const result = await page.evaluate(async () => {
+      const response = await fetch("/uncached-pwa-resource.js");
+      return {
+        body: await response.text(),
+        errorKind: response.headers.get("x-dunia-zee-error"),
+        status: response.status,
+      };
+    });
+
+    expect(result.status).toBe(503);
+    expect(result.errorKind).toBe("resource");
+    expect(result.body).toContain("try again");
+  });
+
   test("relaunches the Playroom and complete Game from the offline cache", async ({ page, context }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
@@ -71,18 +119,30 @@ test.describe("Dunia Zee PWA", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
   });
 
-  test("removes stale versioned caches when a new service worker activates", async ({ page }) => {
+  test("replaces the complete old cache without mixed-version resources", async ({ page }) => {
     await page.goto("/");
     await waitForServiceWorker(page);
 
-    await page.evaluate(async () => {
-      const staleCache = await caches.open("dunia-zee-v0");
-      await staleCache.put("/stale-marker", new Response("stale"));
+    const previousCacheName = await page.evaluate(async () => {
+      const cacheNames = await caches.keys();
+      const currentCacheName = cacheNames.find((cacheName) => cacheName.startsWith("dunia-zee-v"));
+      if (!currentCacheName) {
+        throw new Error("The active service worker cache is missing");
+      }
 
+      const staleCache = await caches.open(currentCacheName);
+      await staleCache.put("/mixed-version-marker", new Response("old deployment"));
+      await staleCache.put("/index.html", new Response("old deployment shell"));
+      return currentCacheName;
+    });
+    const nextCacheName = `dunia-zee-vdeployment-${Date.now()}`;
+    const nextVersion = nextCacheName.slice("dunia-zee-v".length);
+
+    await page.evaluate(async (version) => {
       const registration = await navigator.serviceWorker.register(
-        "/service-worker.js?version=cache-update-test",
+        `/service-worker.js?v=${version}`,
       );
-      const activeWorker = registration.active ?? registration.installing ?? registration.waiting;
+      const activeWorker = registration.installing ?? registration.waiting ?? registration.active;
       if (!activeWorker) {
         throw new Error("Service worker did not start installing");
       }
@@ -98,11 +158,25 @@ test.describe("Dunia Zee PWA", () => {
           });
         });
       }
-    });
+    }, nextVersion);
 
     await expect
       .poll(() => page.evaluate(() => caches.keys()))
-      .not.toContain("dunia-zee-v0");
+      .toEqual([nextCacheName]);
+
+    const cacheState = await page.evaluate(async (cacheName) => {
+      const activeCache = await caches.open(cacheName);
+      const shell = await activeCache.match("/index.html");
+      const mixedMarker = await caches.match("/mixed-version-marker");
+      return {
+        hasMixedMarker: mixedMarker !== undefined,
+        shell: shell ? await shell.text() : "",
+      };
+    }, nextCacheName);
+
+    expect(previousCacheName).not.toBe(nextCacheName);
+    expect(cacheState.hasMixedMarker).toBe(false);
+    expect(cacheState.shell).toContain("<!doctype html>");
   });
 });
 

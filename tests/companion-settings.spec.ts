@@ -33,4 +33,21 @@ test.describe("Companion settings", () => {
       await expect(page.getByTestId("child-stage")).toHaveAttribute("data-reduced-motion", "true");
     }
   });
+
+  test("shows when device-local settings storage is unavailable", async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.getItem = () => {
+        throw new Error("storage disabled");
+      };
+      Storage.prototype.setItem = () => {
+        throw new Error("storage disabled");
+      };
+    });
+
+    await page.goto("/");
+
+    await expect(page.getByTestId("settings-storage-error")).toBeVisible();
+    await page.getByLabel("Normal").check();
+    await expect(page.getByTestId("settings-storage-error")).toContainText("device");
+  });
 });

@@ -8,6 +8,10 @@ import {
 } from "./companionSettings";
 import { installCompanionGate } from "./companionGate";
 import { registerServiceWorker } from "./registerServiceWorker";
+import {
+  createDepotTenangGame,
+  type DepotTenangGame,
+} from "./game/depotTenangGameFactory";
 import type { DepotTenangFeedback, DepotTenangState } from "./game/depotTenangTypes";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -23,6 +27,10 @@ app.innerHTML = `
         <p class="eyebrow">Dunia Zee</p>
         <h1 id="playroom-title">Playroom</h1>
         <p class="playroom__intro">Pilih satu Game untuk menemani Explorer menjelajah.</p>
+        <div class="service-worker-error" data-testid="service-worker-error" role="alert" hidden>
+          <p>Offline support sedang tidak tersedia. Companion tetap bisa bermain online.</p>
+          <button class="secondary-button" data-testid="service-worker-retry" type="button">Coba lagi</button>
+        </div>
       </div>
       <article class="game-card" aria-labelledby="depot-title">
         <div class="game-card__art" aria-hidden="true">
@@ -39,6 +47,9 @@ app.innerHTML = `
           </p>
           <section class="companion-settings" data-testid="companion-settings" aria-labelledby="settings-title">
             <h3 id="settings-title">Companion settings</h3>
+            <p class="settings-storage-error" data-testid="settings-storage-error" role="alert" hidden>
+              Pengaturan device tidak bisa disimpan. Companion tetap bisa bermain selama kunjungan ini.
+            </p>
             <fieldset>
               <legend>Sound Profile</legend>
               <label>
@@ -130,6 +141,8 @@ app.innerHTML = `
 const playroom = getRequiredElement<HTMLElement>("[data-testid='playroom']");
 const childStage = getRequiredElement<HTMLElement>("[data-testid='child-stage']");
 const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-tenang-card']");
+const serviceWorkerError = getRequiredElement<HTMLElement>("[data-testid='service-worker-error']");
+const serviceWorkerRetry = getRequiredElement<HTMLButtonElement>("[data-testid='service-worker-retry']");
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
 const gameLoading = getRequiredElement<HTMLElement>("[data-testid='game-loading']");
 const gameLoadError = getRequiredElement<HTMLElement>("[data-testid='game-load-error']");
@@ -147,7 +160,13 @@ const companionGateReturn = getRequiredElement<HTMLButtonElement>("[data-testid=
 const companionGateTouchLeft = getRequiredElement<HTMLElement>("[data-testid='companion-gate-touch-left']");
 const companionGateTouchRight = getRequiredElement<HTMLElement>("[data-testid='companion-gate-touch-right']");
 
-let companionSettings = loadCompanionSettings();
+const settingsStorageError = getRequiredElement<HTMLElement>("[data-testid='settings-storage-error']");
+
+function showSettingsStorageError(): void {
+  settingsStorageError.hidden = false;
+}
+
+let companionSettings = loadCompanionSettings(undefined, showSettingsStorageError);
 applySettingsToPanel(companionSettings);
 
 for (const input of soundProfileInputs) {
@@ -160,7 +179,7 @@ for (const input of soundProfileInputs) {
       ...companionSettings,
       soundProfile: input.value,
     };
-    saveCompanionSettings(companionSettings);
+    saveCompanionSettings(companionSettings, undefined, showSettingsStorageError);
   });
 }
 
@@ -169,12 +188,8 @@ reducedMotionInput.addEventListener("change", () => {
     ...companionSettings,
     reducedMotion: reducedMotionInput.checked,
   };
-  saveCompanionSettings(companionSettings);
+  saveCompanionSettings(companionSettings, undefined, showSettingsStorageError);
 });
-
-type DepotTenangGame = {
-  destroy(removeCanvas?: boolean): void;
-};
 
 let game: DepotTenangGame | undefined;
 let isGameLoading = false;
@@ -200,7 +215,7 @@ const gameplayKeyboardKeys = new Set([
   " ",
   "Enter",
 ]);
-const serviceWorkerReady = registerServiceWorker();
+let serviceWorkerReady = registerServiceWorker();
 let audioContext: AudioContext | undefined;
 let audioOutput: GainNode | undefined;
 let nextActionSoundAt = 0;
@@ -211,6 +226,26 @@ installCompanionGate({
   rightTouchCorner: companionGateTouchRight,
   isOpen: () => isCompanionGateOpen,
   onOpen: openCompanionGate,
+});
+
+void serviceWorkerReady.then(handleServiceWorkerStatus);
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (event: MessageEvent<unknown>) => {
+    if (isServiceWorkerErrorMessage(event.data)) {
+      showServiceWorkerError();
+    }
+  });
+}
+
+serviceWorkerRetry.addEventListener("click", () => {
+  serviceWorkerError.hidden = true;
+  serviceWorkerRetry.disabled = true;
+  serviceWorkerReady = registerServiceWorker();
+  void serviceWorkerReady.then((status) => {
+    serviceWorkerRetry.disabled = false;
+    handleServiceWorkerStatus(status);
+  });
 });
 
 window.addEventListener(
@@ -341,31 +376,35 @@ async function startDepotTenang(): Promise<void> {
   playCycleState.textContent = "Exploring";
 
   try {
-    await serviceWorkerReady;
+    const serviceWorkerStatus = await serviceWorkerReady;
+    handleServiceWorkerStatus(serviceWorkerStatus);
     const gameModule =
       gameLoadAttempt === 0
         ? import("./game/depotTenangGame")
         : import("./game/depotTenangGameRetry");
     gameLoadAttempt += 1;
-    const { createDepotTenangGame } = await gameModule;
+    const { loadDepotTenangGameDependencies } = await gameModule;
     let resolveGameStageReady: (() => void) | undefined;
     const gameStageReady = new Promise<void>((resolve) => {
       resolveGameStageReady = resolve;
     });
-    game = await createDepotTenangGame({
-      parent: gameMount,
-      onStateChange: (state) => {
-        updateStageState(state);
-        if (state === "ready") {
-          resolveGameStageReady?.();
-        }
+    game = await createDepotTenangGame(
+      {
+        parent: gameMount,
+        onStateChange: (state) => {
+          updateStageState(state);
+          if (state === "ready") {
+            resolveGameStageReady?.();
+          }
+        },
+        onFeedback: updateStageFeedback,
+        onActionAccepted: playActionSound,
+        onJourneyComplete: updateDioramaTime,
+        onPlayCycleComplete: enterQuietState,
+        reducedMotion: companionSettings.reducedMotion,
       },
-      onFeedback: updateStageFeedback,
-      onActionAccepted: playActionSound,
-      onJourneyComplete: updateDioramaTime,
-      onPlayCycleComplete: enterQuietState,
-      reducedMotion: companionSettings.reducedMotion,
-    });
+      loadDepotTenangGameDependencies,
+    );
     await gameStageReady;
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => resolve());
@@ -610,4 +649,29 @@ function getRequiredElements<ElementType extends Element>(selector: string): Ele
   }
 
   return elements;
+}
+
+type ServiceWorkerStatus = Awaited<ReturnType<typeof registerServiceWorker>>;
+
+function handleServiceWorkerStatus(status: ServiceWorkerStatus): void {
+  if (!status.supported || !status.error) {
+    serviceWorkerError.hidden = true;
+    return;
+  }
+
+  showServiceWorkerError();
+}
+
+function showServiceWorkerError(): void {
+  serviceWorkerError.hidden = false;
+  serviceWorkerRetry.disabled = false;
+}
+
+function isServiceWorkerErrorMessage(value: unknown): value is { type: "dunia-zee-error" } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    value.type === "dunia-zee-error"
+  );
 }

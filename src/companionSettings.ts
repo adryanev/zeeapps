@@ -5,6 +5,8 @@ export type CompanionSettings = {
   reducedMotion: boolean;
 };
 
+export type CompanionSettingsErrorHandler = (error: unknown) => void;
+
 export const COMPANION_SETTINGS_STORAGE_KEY = "dunia-zee-companion-settings";
 
 export const DEFAULT_COMPANION_SETTINGS: CompanionSettings = {
@@ -14,28 +16,37 @@ export const DEFAULT_COMPANION_SETTINGS: CompanionSettings = {
 
 const SOUND_PROFILES: readonly SoundProfile[] = ["lembut", "normal", "senyap"];
 
-export function loadCompanionSettings(storage: Storage = window.localStorage): CompanionSettings {
+export function loadCompanionSettings(
+  storage?: Storage,
+  onError?: CompanionSettingsErrorHandler,
+): CompanionSettings {
   try {
-    const storedSettings = storage.getItem(COMPANION_SETTINGS_STORAGE_KEY);
+    const storageToUse = storage ?? window.localStorage;
+    const storedSettings = storageToUse.getItem(COMPANION_SETTINGS_STORAGE_KEY);
 
     if (!storedSettings) {
       return { ...DEFAULT_COMPANION_SETTINGS };
     }
 
     return parseCompanionSettings(JSON.parse(storedSettings));
-  } catch {
+  } catch (error) {
+    onError?.(error);
     return { ...DEFAULT_COMPANION_SETTINGS };
   }
 }
 
 export function saveCompanionSettings(
   settings: CompanionSettings,
-  storage: Storage = window.localStorage,
-): void {
+  storage?: Storage,
+  onError?: CompanionSettingsErrorHandler,
+): boolean {
   try {
-    storage.setItem(COMPANION_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // Device-local storage can be unavailable in a restricted browser context.
+    const storageToUse = storage ?? window.localStorage;
+    storageToUse.setItem(COMPANION_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    return true;
+  } catch (error) {
+    onError?.(error);
+    return false;
   }
 }
 
