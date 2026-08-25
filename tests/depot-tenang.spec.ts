@@ -32,6 +32,8 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
     await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
     await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
       timeout: 3_000,
     });
@@ -41,6 +43,8 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
       timeout: 3_000,
     });
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("game-status")).toHaveText("Kereta tenang di depot", {
       timeout: 3_000,
@@ -53,6 +57,7 @@ test.describe("Depot Tenang", () => {
     });
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowUp");
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat tenang di hangar", {
       timeout: 3_000,
     });
@@ -62,9 +67,114 @@ test.describe("Depot Tenang", () => {
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Space");
     await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
+    await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
+    await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
     await expect(page.getByTestId("play-cycle-state")).toHaveText("Quiet State");
     await expect(page.getByTestId("game-status")).toHaveText("Depot tetap tenang");
     await expect(page.locator("canvas")).toHaveCount(1);
+  });
+
+  test("requires three calm activity beats before each vehicle returns", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    const status = page.getByTestId("game-status");
+
+    await page.keyboard.press("ArrowRight");
+    await expect(status).toHaveText("Truk menurunkan muatan", { timeout: 3_000 });
+    await page.keyboard.press("Space");
+    await expect(status).toHaveText("Truk menurunkan muatan");
+    await page.keyboard.press("Space");
+    await expect(status).toHaveText("Truk menurunkan muatan");
+    await page.keyboard.press("Space");
+    await expect(status).toHaveText("Truk kembali ke garasi");
+    await expect(status).toHaveText("Truk tenang di garasi", { timeout: 3_000 });
+
+    await page.keyboard.press("ArrowRight");
+    await expect(status).toHaveText("Kereta di stasiun", { timeout: 3_000 });
+    await page.keyboard.press("Enter");
+    await expect(status).toHaveText("Kereta di stasiun");
+    await page.keyboard.press("Enter");
+    await expect(status).toHaveText("Kereta di stasiun");
+    await page.keyboard.press("Enter");
+    await expect(status).toHaveText("Kereta kembali ke depot");
+    await expect(status).toHaveText("Kereta tenang di depot", { timeout: 3_000 });
+
+    await page.keyboard.press("ArrowRight");
+    await expect(status).toHaveText("Pesawat terbang di koridor aman", { timeout: 3_000 });
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowDown");
+    await expect(status).toHaveText("Pesawat terbang di koridor aman");
+    await page.keyboard.press("ArrowUp");
+    await expect(status).toHaveText("Pesawat kembali ke hangar");
+    await expect(status).toHaveText("Pesawat tenang di hangar", { timeout: 3_000 });
+  });
+
+  test("fits an unhurried Play Cycle in the three-to-five-minute virtual window", async ({ page }) => {
+    test.setTimeout(45_000);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    const status = page.getByTestId("game-status");
+    await expect(status).toHaveText("Truk menunggu di garasi");
+
+    await page.clock.install();
+    const startedAt = await page.evaluate(() => performance.now());
+    const expectStatus = async (expected: string): Promise<void> => {
+      expect(await status.textContent()).toBe(expected);
+    };
+    // Nine beats at the documented ~20-second unhurried toddler pace yield 180 seconds.
+    const unhurriedBeat = async (): Promise<void> => {
+      await page.clock.fastForward(20_000);
+    };
+    const settleMovement = async (): Promise<void> => {
+      await page.clock.runFor(2_000);
+    };
+
+    await page.keyboard.press("ArrowRight");
+    await settleMovement();
+    await expectStatus("Truk menurunkan muatan");
+    await unhurriedBeat();
+    await page.keyboard.press("Space");
+    await expectStatus("Truk menurunkan muatan");
+    await unhurriedBeat();
+    await page.keyboard.press("Space");
+    await expectStatus("Truk menurunkan muatan");
+    await unhurriedBeat();
+    await page.keyboard.press("Space");
+    await settleMovement();
+    await expectStatus("Truk tenang di garasi");
+
+    await page.keyboard.press("ArrowRight");
+    await settleMovement();
+    await expectStatus("Kereta di stasiun");
+    await unhurriedBeat();
+    await page.keyboard.press("Enter");
+    await expectStatus("Kereta di stasiun");
+    await unhurriedBeat();
+    await page.keyboard.press("Enter");
+    await expectStatus("Kereta di stasiun");
+    await unhurriedBeat();
+    await page.keyboard.press("Enter");
+    await page.clock.runFor(3_000);
+    await expectStatus("Kereta tenang di depot");
+
+    await page.keyboard.press("ArrowRight");
+    await settleMovement();
+    await expectStatus("Pesawat terbang di koridor aman");
+    await unhurriedBeat();
+    await page.keyboard.press("ArrowUp");
+    await expectStatus("Pesawat terbang di koridor aman");
+    await unhurriedBeat();
+    await page.keyboard.press("ArrowDown");
+    await expectStatus("Pesawat terbang di koridor aman");
+    await unhurriedBeat();
+    await page.keyboard.press("ArrowUp");
+    await page.clock.runFor(3_000);
+    await expectStatus("Pesawat tenang di hangar");
+    expect(await page.getByTestId("play-cycle-state").textContent()).toBe("Quiet State");
+
+    const elapsed = await page.evaluate((started) => performance.now() - started, startedAt);
+    expect(elapsed).toBeGreaterThanOrEqual(180_000);
+    expect(elapsed).toBeLessThanOrEqual(300_000);
   });
 
   test("accepts an empty-stage tap as the first vehicle response", async ({ page }) => {
@@ -113,6 +223,8 @@ test.describe("Depot Tenang", () => {
     });
 
     await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
+    await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
+    await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
 
     await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
     await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
@@ -141,6 +253,8 @@ test.describe("Depot Tenang", () => {
     await page.mouse.up();
 
     await expect(page.getByTestId("game-status")).toHaveText("Muatan dilepas dengan lembut");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowRight");
     await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
   });
@@ -186,7 +300,9 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
 
-    await Promise.all(Array.from({ length: 12 }, () => page.keyboard.press("ArrowRight")));
+    for (let beat = 0; beat < 3; beat += 1) {
+      await Promise.all(Array.from({ length: 12 }, () => page.keyboard.press("ArrowRight")));
+    }
     await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
     await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
       timeout: 3_000,
@@ -224,6 +340,8 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
     await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
     await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
     await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
       timeout: 3_000,
@@ -236,6 +354,8 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
 
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("game-status")).toHaveText("Kereta kembali ke depot");
     await expect(page.getByTestId("game-status")).toHaveText("Kereta tenang di depot", {
@@ -273,6 +393,8 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
     await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
     await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
       timeout: 3_000,
     });
@@ -301,6 +423,8 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
       timeout: 3_000,
     });
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Space");
     await page.keyboard.press("Space");
     await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
       timeout: 3_000,
@@ -351,6 +475,7 @@ test.describe("Depot Tenang", () => {
 
     await page.keyboard.press("ArrowUp");
     await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowUp");
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali ke hangar");
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat tenang di hangar", {
       timeout: 3_000,
@@ -375,9 +500,11 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
 
-    await Promise.all(
-      Array.from({ length: 20 }, (_, index) => page.keyboard.press(index % 2 ? "ArrowDown" : "ArrowUp")),
-    );
+    for (let beat = 0; beat < 3; beat += 1) {
+      await Promise.all(
+        Array.from({ length: 20 }, (_, index) => page.keyboard.press(index % 2 ? "ArrowDown" : "ArrowUp")),
+      );
+    }
 
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali ke hangar");
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat tenang di hangar", {
@@ -575,6 +702,8 @@ test.describe("Depot Tenang", () => {
           timeout: 3_000,
         });
 
+        await page.touchscreen.tap(playPoint.x, playPoint.y);
+        await page.touchscreen.tap(playPoint.x, playPoint.y);
         await page.touchscreen.tap(playPoint.x, playPoint.y);
         await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
         await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
