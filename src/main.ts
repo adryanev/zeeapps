@@ -79,6 +79,8 @@ app.innerHTML = `
         <div class="stage-status" aria-live="polite">
           <span class="active-vehicle" data-testid="active-vehicle">Belum ada kendaraan aktif</span>
           <span class="game-status" data-testid="game-status">Depot sedang dibuka</span>
+          <span class="diorama-time" data-testid="diorama-time">Afternoon</span>
+          <span class="play-cycle-state" data-testid="play-cycle-state">Exploring</span>
         </div>
       </header>
       <div
@@ -121,6 +123,8 @@ const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-t
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
 const gameStatus = getRequiredElement<HTMLElement>("[data-testid='game-status']");
 const activeVehicle = getRequiredElement<HTMLElement>("[data-testid='active-vehicle']");
+const dioramaTime = getRequiredElement<HTMLElement>("[data-testid='diorama-time']");
+const playCycleState = getRequiredElement<HTMLElement>("[data-testid='play-cycle-state']");
 const soundProfileInputs = getRequiredElements<HTMLInputElement>("input[name='sound-profile']");
 const reducedMotionInput = getRequiredElement<HTMLInputElement>("[data-testid='reduced-motion-toggle']");
 const companionGate = getRequiredElement<HTMLElement>("[data-testid='companion-gate']");
@@ -181,6 +185,8 @@ startButton.addEventListener("click", () => {
   playroom.hidden = true;
   childStage.hidden = false;
   gameStatus.textContent = "Depot sedang dibuka";
+  updateDioramaTime(0);
+  playCycleState.textContent = "Exploring";
 
   game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -207,6 +213,8 @@ startButton.addEventListener("click", () => {
       onStateChange: updateStageState,
       onFeedback: updateStageFeedback,
       onActionAccepted: playActionSound,
+      onJourneyComplete: updateDioramaTime,
+      onPlayCycleComplete: enterQuietState,
       reducedMotion: companionSettings.reducedMotion,
     }),
   });
@@ -268,6 +276,17 @@ function updateStageFeedback(feedback: DepotTenangFeedback): void {
   if (feedback === "vehicle-selected") {
     activeVehicle.textContent = "Truk aktif";
   }
+}
+
+function updateDioramaTime(completedJourneys: number): void {
+  const timeOfDay = completedJourneys >= 3 ? "Dusk" : completedJourneys > 0 ? "Late afternoon" : "Afternoon";
+  dioramaTime.textContent = timeOfDay;
+  childStage.dataset.timeOfDay = timeOfDay.toLowerCase().replace(" ", "-");
+}
+
+function enterQuietState(): void {
+  playCycleState.textContent = "Quiet State";
+  childStage.dataset.quietState = "true";
 }
 
 function activateAudio(soundProfile: SoundProfile): void {
@@ -335,6 +354,9 @@ function returnToPlayroom(): void {
   startButton.disabled = false;
   gameStatus.textContent = "Depot sedang dibuka";
   activeVehicle.textContent = "Belum ada kendaraan aktif";
+  updateDioramaTime(0);
+  playCycleState.textContent = "Exploring";
+  delete childStage.dataset.quietState;
 }
 
 function applySettingsToPanel(settings: CompanionSettings): void {

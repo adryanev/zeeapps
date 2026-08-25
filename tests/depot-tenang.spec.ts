@@ -22,6 +22,51 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("active-vehicle")).toHaveText("Truk aktif");
   });
 
+  test("completes the fixed truck, train, and airplane Play Cycle", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+    await expect(page.getByTestId("diorama-time")).toHaveText("Afternoon");
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+      timeout: 3_000,
+    });
+    await expect(page.getByTestId("diorama-time")).toHaveText("Late afternoon");
+
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("game-status")).toHaveText("Kereta tenang di depot", {
+      timeout: 3_000,
+    });
+    await expect(page.getByTestId("diorama-time")).toHaveText("Late afternoon");
+
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+      timeout: 3_000,
+    });
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat tenang di hangar", {
+      timeout: 3_000,
+    });
+    await expect(page.getByTestId("diorama-time")).toHaveText("Dusk");
+    await expect(page.getByTestId("play-cycle-state")).toHaveText("Quiet State");
+
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Space");
+    await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
+    await expect(page.getByTestId("play-cycle-state")).toHaveText("Quiet State");
+    await expect(page.getByTestId("game-status")).toHaveText("Depot tetap tenang");
+    await expect(page.locator("canvas")).toHaveCount(1);
+  });
+
   test("accepts an empty-stage tap as the first vehicle response", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
@@ -408,7 +453,6 @@ test.describe("Depot Tenang", () => {
       const canvas = page.locator("canvas");
       const bounds = await canvas.boundingBox();
       expect(bounds).not.toBeNull();
-
       await page.touchscreen.tap(
         (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.9,
         (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.8,
@@ -429,6 +473,32 @@ test.describe("Depot Tenang", () => {
 
       await dispatchTouch(page, "touchend", 51, point);
       await dispatchTouch(page, "touchend", 52, point);
+    });
+  });
+
+  test.describe("touch resting-place selection", () => {
+    test.use({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 844, height: 390 },
+    });
+
+    test("selects a visible airplane Resting Place with a touch", async ({ page }) => {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+      const canvas = page.locator("canvas");
+      const bounds = await canvas.boundingBox();
+      expect(bounds).not.toBeNull();
+      await page.touchscreen.tap(
+        (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.94,
+        (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.72,
+      );
+
+      await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
+        timeout: 3_000,
+      });
+      await expect(page.getByTestId("active-vehicle")).toHaveText("Pesawat aktif");
     });
   });
 

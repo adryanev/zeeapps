@@ -48,6 +48,8 @@ type DepotTenangCallbacks = {
   onStateChange: (state: DepotTenangState) => void;
   onFeedback?: (feedback: DepotTenangFeedback) => void;
   onActionAccepted?: () => void;
+  onJourneyComplete?: (completedJourneys: number) => void;
+  onPlayCycleComplete?: () => void;
   reducedMotion?: boolean;
 };
 
@@ -117,6 +119,13 @@ const COLORS = {
   corridor: 0xf7edbf,
 };
 
+const DIORAMA_TIME_PALETTES = [
+  { sky: COLORS.sky, skyLight: COLORS.skyLight, hill: COLORS.hill, ground: COLORS.ground },
+  { sky: 0xa8c7c8, skyLight: 0xd6e4dc, hill: 0x88b09e, ground: 0xcdbb98 },
+  { sky: 0x819eaa, skyLight: 0xd3d4c7, hill: 0x6e927f, ground: 0xb5a585 },
+  { sky: 0x5c7183, skyLight: 0xf0d7a5, hill: 0x526e70, ground: 0x8d7d77 },
+] as const;
+
 type ActiveVehicle = "none" | "truck" | "train" | "airplane";
 type TrainPhase = "ready" | "moving" | "station" | "returning" | "quiet";
 type AirplanePhase = "ready" | "taking-off" | "flying" | "returning" | "quiet" | "recovering";
@@ -125,6 +134,8 @@ export class DepotTenangScene extends Phaser.Scene {
   private readonly onStateChange: (state: DepotTenangState) => void;
   private readonly onFeedback?: (feedback: DepotTenangFeedback) => void;
   private readonly onActionAccepted?: () => void;
+  private readonly onJourneyComplete?: (completedJourneys: number) => void;
+  private readonly onPlayCycleComplete?: () => void;
   private readonly reducedMotion: boolean;
   private diorama?: Phaser.GameObjects.Graphics;
   private depotLabels: Phaser.GameObjects.Text[] = [];
@@ -170,12 +181,16 @@ export class DepotTenangScene extends Phaser.Scene {
   private airplanePointerId?: number;
   private airplaneGrabTarget = { x: 0, y: 0 };
   private lastAirplaneMovementAt = 0;
+  private completedJourneys = 0;
+  private playCycleQuietEntered = false;
 
   public constructor(callbacks: DepotTenangCallbacks) {
     super({ key: "DepotTenangScene" });
     this.onStateChange = callbacks.onStateChange;
     this.onFeedback = callbacks.onFeedback;
     this.onActionAccepted = callbacks.onActionAccepted;
+    this.onJourneyComplete = callbacks.onJourneyComplete;
+    this.onPlayCycleComplete = callbacks.onPlayCycleComplete;
     this.reducedMotion = callbacks.reducedMotion ?? false;
   }
 
@@ -583,15 +598,16 @@ export class DepotTenangScene extends Phaser.Scene {
     const roadY = Math.min(ROAD_Y, height * 0.75);
     const railY = roadY - 96;
     const skyLine = height * 0.54;
+    const timePalette = DIORAMA_TIME_PALETTES[Math.min(this.completedJourneys, 3)];
 
     this.diorama.clear();
-    this.diorama.fillStyle(COLORS.sky, 1).fillRect(0, 0, width, height);
-    this.diorama.fillStyle(COLORS.skyLight, 0.75).fillCircle(width * 0.8, height * 0.2, 62);
-    this.diorama.fillStyle(COLORS.skyLight, 0.8).fillCircle(width * 0.24, height * 0.24, 28);
-    this.diorama.fillStyle(COLORS.skyLight, 0.8).fillCircle(width * 0.29, height * 0.23, 36);
-    this.diorama.fillStyle(COLORS.hill, 1).fillTriangle(0, skyLine + 64, width * 0.22, skyLine - 30, width * 0.48, skyLine + 64);
-    this.diorama.fillStyle(0x82ac93, 1).fillTriangle(width * 0.32, skyLine + 64, width * 0.64, skyLine - 50, width, skyLine + 64);
-    this.diorama.fillStyle(COLORS.ground, 1).fillRect(0, skyLine + 48, width, height - skyLine - 48);
+    this.diorama.fillStyle(timePalette.sky, 1).fillRect(0, 0, width, height);
+    this.diorama.fillStyle(timePalette.skyLight, 0.75).fillCircle(width * 0.8, height * 0.2, 62);
+    this.diorama.fillStyle(timePalette.skyLight, 0.8).fillCircle(width * 0.24, height * 0.24, 28);
+    this.diorama.fillStyle(timePalette.skyLight, 0.8).fillCircle(width * 0.29, height * 0.23, 36);
+    this.diorama.fillStyle(timePalette.hill, 1).fillTriangle(0, skyLine + 64, width * 0.22, skyLine - 30, width * 0.48, skyLine + 64);
+    this.diorama.fillStyle(timePalette.hill, 1).fillTriangle(width * 0.32, skyLine + 64, width * 0.64, skyLine - 50, width, skyLine + 64);
+    this.diorama.fillStyle(timePalette.ground, 1).fillRect(0, skyLine + 48, width, height - skyLine - 48);
 
     this.drawHangar(width * 0.83, railY - 55);
     this.drawStation(width * 0.53, railY - 38);
@@ -712,12 +728,14 @@ export class DepotTenangScene extends Phaser.Scene {
       return { type: "advance-vehicle-journey" };
     }
 
-    if (this.activeVehicle === "none" && !this.isTouchPointer(pointer)) {
+    if (this.activeVehicle === "none") {
       const trainRestingPoint = this.getTrainStartingPoint();
       const airplaneRestingPoint = this.getAirplaneHangarPoint();
       const pointerPrefersTrain =
         pointer.x <= (trainRestingPoint.x + airplaneRestingPoint.x) / 2 &&
-        this.findTrainBodyAt(pointer.x, pointer.y);
+        (this.isTouchPointer(pointer)
+          ? this.isAtTrainRestingPlace(pointer.x, pointer.y)
+          : this.findTrainBodyAt(pointer.x, pointer.y));
 
       if (this.trainPhase === "ready" && pointerPrefersTrain) {
         return { type: "advance-vehicle-journey", vehicle: "train" };
@@ -726,7 +744,9 @@ export class DepotTenangScene extends Phaser.Scene {
       if (
         this.airplanePhase === "ready" &&
         (this.truckPhase === "ready" || this.truckPhase === "quiet") &&
-        this.isNearAirplaneRestingPlace(pointer.x, pointer.y)
+        (this.isTouchPointer(pointer)
+          ? this.isAtAirplaneRestingPlace(pointer.x, pointer.y)
+          : this.isNearAirplaneRestingPlace(pointer.x, pointer.y))
       ) {
         return { type: "advance-vehicle-journey", vehicle: "airplane" };
       }
@@ -1080,6 +1100,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.airplanePhase = "quiet";
     this.airplaneFlightInputCount = 0;
     this.activeVehicle = "none";
+    this.completeJourney();
     this.onStateChange("airplane-quiet");
   }
 
@@ -1264,6 +1285,22 @@ export class DepotTenangScene extends Phaser.Scene {
     return xDistance <= AIRPLANE_GRAB_RADIUS + 30 && yDistance <= AIRPLANE_HEIGHT + 20;
   }
 
+  private isAtTrainRestingPlace(x: number, y: number): boolean {
+    const restingPoint = this.getTrainStartingPoint();
+    return (
+      Math.abs(restingPoint.x - x) <= TRAIN_WIDTH * 0.65 &&
+      Math.abs(restingPoint.y - y) <= TRAIN_HEIGHT + 32
+    );
+  }
+
+  private isAtAirplaneRestingPlace(x: number, y: number): boolean {
+    const restingPoint = this.getAirplaneHangarPoint();
+    return (
+      Math.abs(restingPoint.x - x) <= AIRPLANE_WIDTH * 0.6 &&
+      Math.abs(restingPoint.y - y) <= AIRPLANE_HEIGHT + 20
+    );
+  }
+
   private beginAirplaneRecovery(): void {
     if (!this.airplaneBody || this.airplanePhase === "recovering") {
       return;
@@ -1392,6 +1429,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.clearCargo();
     this.truckPhase = "quiet";
     this.activeVehicle = "none";
+    this.completeJourney();
     this.onStateChange("quiet");
   }
 
@@ -1442,7 +1480,23 @@ export class DepotTenangScene extends Phaser.Scene {
     this.setTrainFormation(this.getTrainStartingPoint());
     this.trainPhase = "quiet";
     this.activeVehicle = "none";
+    this.completeJourney();
     this.onStateChange("train-quiet");
+  }
+
+  private completeJourney(): void {
+    if (this.completedJourneys >= 3) {
+      return;
+    }
+
+    this.completedJourneys += 1;
+    this.layoutDiorama();
+    this.onJourneyComplete?.(this.completedJourneys);
+
+    if (this.completedJourneys === 3 && !this.playCycleQuietEntered) {
+      this.playCycleQuietEntered = true;
+      this.onPlayCycleComplete?.();
+    }
   }
 
   private setTrainFormation(anchor: { x: number; y: number }): void {
