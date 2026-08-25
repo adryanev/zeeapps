@@ -22,6 +22,26 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("active-vehicle")).toHaveText("Truk aktif");
   });
 
+  test("keeps the Child Stage inside a short landscape viewport after scrolling the Playroom", async ({
+    page,
+  }) => {
+    const viewport = { width: 844, height: 280 };
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const startButton = page.getByRole("button", { name: "Mulai Depot Tenang" });
+    await startButton.scrollIntoViewIfNeeded();
+    await startButton.click();
+
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    const stage = page.getByTestId("child-stage");
+    const bounds = await stage.boundingBox();
+
+    expect(bounds).not.toBeNull();
+    expect(bounds?.y).toBeGreaterThanOrEqual(0);
+    expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
+  });
+
   test("completes the fixed truck, train, and airplane Play Cycle", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
