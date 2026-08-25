@@ -28,7 +28,21 @@ export type DepotTenangFeedback =
   | "airplane-grabbed"
   | "airplane-released"
   | "airplane-recovered"
-  | "quiet-response";
+  | "quiet-response"
+  | "vehicle-selected";
+
+/**
+ * Equivalent Input normalizes keyboard and pointer actions into these Game intentions:
+ * advance a Vehicle Journey, select a vehicle at its Resting Place, or optionally Soft Grab cargo.
+ */
+type GameIntention = "advance-vehicle-journey" | "select-resting-place" | "soft-grab";
+
+type PointerDownIntention =
+  | { type: "advance-vehicle-journey"; vehicle?: "truck" | "train" | "airplane" }
+  | { type: "select-resting-place" }
+  | { type: "soft-grab"; cargo: MatterJS.BodyType }
+  | { type: "train-soft-grab"; trainBody: MatterJS.BodyType }
+  | { type: "airplane-soft-grab" };
 
 type DepotTenangCallbacks = {
   onStateChange: (state: DepotTenangState) => void;
@@ -133,6 +147,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private grabTarget = { x: 0, y: 0 };
   private grabStart = { x: 0, y: 0 };
   private grabStartedAt = 0;
+  private activeTouchId?: number;
   private truckRecoveryTarget?: { x: number; y: number };
   private cargoRecoveryActive = false;
   private lastTruckMovementAt = 0;
@@ -664,91 +679,119 @@ export class DepotTenangScene extends Phaser.Scene {
     this.layoutDiorama();
   }
 
-  private handleKeyboard(event: KeyboardEvent): void {
+  private normalizeKeyboardIntent(event: KeyboardEvent): GameIntention | undefined {
     if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
-      return;
+      return undefined;
     }
 
-    if (this.activeVehicle === "airplane") {
-      this.advanceAirplaneJourney(event.key);
-      return;
-    }
-
-    this.advanceJourney();
+    return "advance-vehicle-journey";
   }
 
-  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
-    if (
-      this.grabbedCargo ||
-      this.cargoRecoveryActive ||
-      this.truckRecoveryTarget ||
-      this.trainGrabbedBody ||
-      this.trainRecoveryActive
-    ) {
-      return;
+  private handleKeyboard(event: KeyboardEvent): void {
+    const intention = this.normalizeKeyboardIntent(event);
+    if (intention === "advance-vehicle-journey") {
+      this.advanceJourney(event.key);
     }
+  }
 
+  private normalizePointerDownIntent(pointer: Phaser.Input.Pointer): PointerDownIntention {
     if (this.activeVehicle === "airplane") {
       if (this.airplanePhase === "flying" && this.findAirplaneAt(pointer.x, pointer.y)) {
-        this.beginAirplaneGrab(pointer);
-        return;
+        return { type: "airplane-soft-grab" };
       }
 
-      this.advanceAirplaneJourney();
-      return;
-    }
-
-    const trainRestingPoint = this.getTrainStartingPoint();
-    const airplaneRestingPoint = this.getAirplaneHangarPoint();
-    const pointerPrefersTrain =
-      pointer.x <= (trainRestingPoint.x + airplaneRestingPoint.x) / 2 &&
-      this.findTrainBodyAt(pointer.x, pointer.y);
-
-    if (this.activeVehicle === "none" && this.trainPhase === "ready" && pointerPrefersTrain) {
-      this.startTrainJourney();
-      return;
-    }
-
-    if (
-      this.activeVehicle === "none" &&
-      this.airplanePhase === "ready" &&
-      (this.truckPhase === "ready" || this.truckPhase === "quiet") &&
-      this.isNearAirplaneRestingPlace(pointer.x, pointer.y)
-    ) {
-      this.startAirplaneJourney();
-      return;
+      return { type: "advance-vehicle-journey" };
     }
 
     if (this.activeVehicle === "train") {
       const trainBody = this.findTrainBodyAt(pointer.x, pointer.y);
       if (trainBody && this.trainPhase !== "quiet") {
-        this.beginTrainGrab(trainBody, pointer);
-        return;
+        return { type: "train-soft-grab", trainBody };
       }
+
+      return { type: "advance-vehicle-journey" };
     }
 
-    if (
-      this.activeVehicle === "none" &&
-      this.trainPhase === "ready" &&
-      this.findTrainBodyAt(pointer.x, pointer.y)
-    ) {
-      this.startTrainJourney();
-      return;
+    if (this.activeVehicle === "none" && !this.isTouchPointer(pointer)) {
+      const trainRestingPoint = this.getTrainStartingPoint();
+      const airplaneRestingPoint = this.getAirplaneHangarPoint();
+      const pointerPrefersTrain =
+        pointer.x <= (trainRestingPoint.x + airplaneRestingPoint.x) / 2 &&
+        this.findTrainBodyAt(pointer.x, pointer.y);
+
+      if (this.trainPhase === "ready" && pointerPrefersTrain) {
+        return { type: "advance-vehicle-journey", vehicle: "train" };
+      }
+
+      if (
+        this.airplanePhase === "ready" &&
+        (this.truckPhase === "ready" || this.truckPhase === "quiet") &&
+        this.isNearAirplaneRestingPlace(pointer.x, pointer.y)
+      ) {
+        return { type: "advance-vehicle-journey", vehicle: "airplane" };
+      }
     }
 
     if (this.truckPhase === "cargo") {
       const cargo = this.findCargoAt(pointer.x, pointer.y);
-
       if (cargo) {
-        this.beginCargoGrab(cargo, pointer);
-        return;
+        return { type: "soft-grab", cargo };
       }
     }
 
-    this.advanceTruckJourney();
+    if (this.truckPhase === "ready" && this.isAtTruckRestingPlace(pointer.x, pointer.y)) {
+      return { type: "select-resting-place" };
+    }
+
+    return { type: "advance-vehicle-journey" };
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (!this.claimTouch(pointer)) {
+      return;
+    }
+
+    if (
+      this.grabbedCargo ||
+      this.cargoRecoveryActive ||
+      this.truckRecoveryTarget ||
+      this.trainGrabbedBody ||
+      this.trainRecoveryActive ||
+      this.airplanePointerId !== undefined ||
+      this.airplaneRecoveryTarget
+    ) {
+      return;
+    }
+
+    const intention = this.normalizePointerDownIntent(pointer);
+    if (intention.type === "soft-grab") {
+      this.beginCargoGrab(intention.cargo, pointer);
+      return;
+    }
+
+    if (intention.type === "train-soft-grab") {
+      this.beginTrainGrab(intention.trainBody, pointer);
+      return;
+    }
+
+    if (intention.type === "airplane-soft-grab") {
+      this.beginAirplaneGrab(pointer);
+      return;
+    }
+
+    if (intention.type === "select-resting-place") {
+      this.onFeedback?.("vehicle-selected");
+      return;
+    }
+
+    this.advanceJourney("", intention.vehicle);
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    if (this.isTouchPointer(pointer) && this.activeTouchId !== pointer.id) {
+      return;
+    }
+
     if (this.grabbedCargo && this.grabPointerId === pointer.id) {
       this.grabTarget.x = pointer.x;
       this.grabTarget.y = pointer.y;
@@ -768,6 +811,14 @@ export class DepotTenangScene extends Phaser.Scene {
   }
 
   private handlePointerUp(pointer: Phaser.Input.Pointer): void {
+    if (this.isTouchPointer(pointer)) {
+      if (this.activeTouchId !== pointer.id) {
+        return;
+      }
+
+      this.activeTouchId = undefined;
+    }
+
     if (this.grabbedCargo && this.grabPointerId === pointer.id) {
       const releasedCargo = this.grabbedCargo;
       const elapsed = Math.max(this.time.now - this.grabStartedAt, 1);
@@ -833,7 +884,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.onFeedback?.("airplane-released");
   }
 
-  private advanceJourney(): void {
+  private advanceJourney(key = "", preferredVehicle?: "truck" | "train" | "airplane"): void {
     if (this.activeVehicle === "truck") {
       this.advanceTruckJourney();
       return;
@@ -845,7 +896,21 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (this.activeVehicle === "airplane") {
-      this.advanceAirplaneJourney();
+      this.advanceAirplaneJourney(key);
+      return;
+    }
+
+    if (preferredVehicle === "train" && this.trainPhase === "ready") {
+      this.startTrainJourney();
+      return;
+    }
+
+    if (
+      preferredVehicle === "airplane" &&
+      this.airplanePhase === "ready" &&
+      (this.truckPhase === "ready" || this.truckPhase === "quiet")
+    ) {
+      this.startAirplaneJourney();
       return;
     }
 
@@ -1421,6 +1486,43 @@ export class DepotTenangScene extends Phaser.Scene {
     this.trainGrabStartedAt = this.time.now;
     this.matter.body.setAngularVelocity(trainBody, 0);
     this.onFeedback?.("train-grabbed");
+  }
+
+  private claimTouch(pointer: Phaser.Input.Pointer): boolean {
+    if (!this.isTouchPointer(pointer)) {
+      return true;
+    }
+
+    if (this.activeTouchId !== undefined) {
+      return false;
+    }
+
+    this.activeTouchId = pointer.id;
+    return true;
+  }
+
+  private isTouchPointer(pointer: Phaser.Input.Pointer): boolean {
+    const event = pointer.event as (TouchEvent & { pointerType?: string }) | undefined;
+    return (
+      event?.type.startsWith("touch") === true ||
+      event?.pointerType === "touch" ||
+      (event !== undefined && "touches" in event) ||
+      this.sys.game.device.input.touch
+    );
+  }
+
+  private isAtTruckRestingPlace(x: number, y: number): boolean {
+    const roadY = Math.min(ROAD_Y, this.getWorldHeight() * 0.75);
+    const restingPlace = {
+      x: this.getWorldWidth() * TRUCK_START_RATIO,
+      y: roadY - 58,
+    };
+    const forgivingRadius = Math.max(
+      86,
+      Math.min(this.getWorldWidth(), this.getWorldHeight()) * 0.16,
+    );
+
+    return Math.hypot(x - restingPlace.x, y - restingPlace.y) <= forgivingRadius;
   }
 
   private findCargoAt(x: number, y: number): MatterJS.BodyType | undefined {

@@ -31,6 +31,30 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
   });
 
+  test("selects the truck at its Resting Place before the Explorer starts its journey", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+    const canvas = page.locator("canvas");
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.14,
+      (bounds?.y ?? 0) + 338,
+    );
+
+    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Truk aktif");
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.8,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.8,
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+  });
+
   test("completes the truck Vehicle Journey without dragging", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
@@ -351,4 +375,177 @@ test.describe("Depot Tenang", () => {
       timeout: 3_000,
     });
   });
+
+  test.describe("touchscreen guidance", () => {
+    test.use({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+    });
+
+    test("keeps the Child Stage active while offering calm portrait guidance", async ({ page }) => {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+      await expect(page.getByTestId("child-stage")).toBeVisible();
+      await expect(page.getByTestId("portrait-guidance")).toBeVisible();
+      await expect(page.getByTestId("portrait-guidance")).toContainText("landscape");
+      await expect(page.getByTestId("child-stage")).toHaveCSS("touch-action", "none");
+      await expect(page.getByTestId("playroom")).toHaveCSS("touch-action", "auto");
+      await expect(page.locator("canvas")).toBeVisible();
+      await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+
+      await page.setViewportSize({ width: 844, height: 390 });
+      await expect(page.getByTestId("portrait-guidance")).toBeHidden();
+      await expect(page.getByTestId("child-stage")).toBeVisible();
+      await expect(page.locator("canvas")).toHaveCount(1);
+    });
+
+    test("maps a one-finger tap to the journey and suppresses a second active touch", async ({ page }) => {
+      await page.goto("/");
+      await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+      const canvas = page.locator("canvas");
+      const bounds = await canvas.boundingBox();
+      expect(bounds).not.toBeNull();
+
+      await page.touchscreen.tap(
+        (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.9,
+        (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.8,
+      );
+      await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+
+      const point = {
+        x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.9,
+        y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.8,
+      };
+      await dispatchTouch(page, "touchstart", 51, point);
+      await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+        timeout: 3_000,
+      });
+
+      await dispatchTouch(page, "touchstart", 52, point);
+      await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan");
+
+      await dispatchTouch(page, "touchend", 51, point);
+      await dispatchTouch(page, "touchend", 52, point);
+    });
+  });
+
+  test.describe("responsive viewports", () => {
+    test.describe("laptop 16:9", () => {
+      test.use({ viewport: { width: 1366, height: 768 } });
+
+      test("keeps the Playroom controls and Child Stage targets visible", async ({ page }) => {
+        await page.goto("/");
+        await expect(page.getByRole("button", { name: "Mulai Depot Tenang" })).toBeVisible();
+        await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+        await expect(page.locator("canvas")).toBeVisible();
+        const bounds = await page.locator("canvas").boundingBox();
+        expect(bounds?.width).toBeGreaterThan(900);
+        expect(bounds?.height).toBeGreaterThan(500);
+        await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+      });
+    });
+
+    test.describe("laptop 16:10", () => {
+      test.use({ viewport: { width: 1280, height: 800 } });
+
+      test("retains the full Diorama without hiding the Child Stage", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+        await expect(page.getByTestId("child-stage")).toBeVisible();
+        await expect(page.locator("canvas")).toBeVisible();
+        await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+        await expect(page.getByTestId("stage-title")).toBeVisible();
+      });
+    });
+
+    test.describe("ultrawide", () => {
+      test.use({ viewport: { width: 1920, height: 1080 } });
+
+      test("keeps the interactive stage inside the viewport", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+
+        const bounds = await page.locator("canvas").boundingBox();
+        expect(bounds?.x).toBeGreaterThanOrEqual(0);
+        expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(1920);
+        expect(bounds?.y).toBeGreaterThanOrEqual(0);
+        expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(1080);
+      });
+    });
+
+    test.describe("mobile landscape", () => {
+      test.use({
+        hasTouch: true,
+        isMobile: true,
+        viewport: { width: 844, height: 390 },
+      });
+
+      test("completes a Play Cycle through one-finger Equivalent Input", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
+        await expect(page.getByTestId("portrait-guidance")).toBeHidden();
+
+        const canvas = page.locator("canvas");
+        const bounds = await canvas.boundingBox();
+        expect(bounds).not.toBeNull();
+        const playPoint = {
+          x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.85,
+          y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.8,
+        };
+
+        await page.touchscreen.tap(playPoint.x, playPoint.y);
+        await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+        await expect(page.getByTestId("game-status")).toHaveText("Truk menurunkan muatan", {
+          timeout: 3_000,
+        });
+
+        await page.touchscreen.tap(playPoint.x, playPoint.y);
+        await expect(page.getByTestId("game-status")).toHaveText("Truk kembali ke garasi");
+        await expect(page.getByTestId("game-status")).toHaveText("Truk tenang di garasi", {
+          timeout: 3_000,
+        });
+      });
+    });
+  });
 });
+
+async function dispatchTouch(
+  page: import("@playwright/test").Page,
+  type: "touchstart" | "touchend",
+  identifier: number,
+  point: { x: number; y: number },
+): Promise<void> {
+  await page.evaluate(
+    ({ type, identifier, point }) => {
+      const canvas = document.querySelector<HTMLCanvasElement>("canvas");
+      if (!canvas) {
+        throw new Error("Missing game canvas");
+      }
+
+      const touch = new Touch({
+        identifier,
+        target: canvas,
+        clientX: point.x,
+        clientY: point.y,
+        pageX: point.x,
+        pageY: point.y,
+        screenX: point.x,
+        screenY: point.y,
+      });
+      const event = new TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        touches: type === "touchend" ? [] : [touch],
+        targetTouches: type === "touchend" ? [] : [touch],
+        changedTouches: [touch],
+      });
+      canvas.dispatchEvent(event);
+    },
+    { type, identifier, point },
+  );
+}

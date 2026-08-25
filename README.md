@@ -35,3 +35,13 @@ npm run test
 ```
 
 The test command creates a production build, starts its preview server on `http://127.0.0.1:4173`, and runs the browser tests.
+
+## Equivalent Input
+
+Depot Tenang maps physical actions to the same Game intentions:
+
+- `advance-vehicle-journey`: press an ordinary keyboard key or tap/click the active play area.
+- `select-resting-place`: tap/click a vehicle's Resting Place while the Diorama is idle.
+- `soft-grab`: press and move with a mouse, trackpad-equivalent pointer, or one finger on optional cargo; swiping is never required to complete a Vehicle Journey.
+
+The Child Stage accepts one active play touch at a time. Playroom settings and scrolling remain ordinary browser controls.
