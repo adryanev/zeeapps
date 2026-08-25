@@ -6,12 +6,20 @@ export type DepotTenangState =
   | "cargo"
   | "returning"
   | "quiet"
-  | "recovering";
+  | "recovering"
+  | "airplane-taking-off"
+  | "airplane-flying"
+  | "airplane-returning"
+  | "airplane-quiet"
+  | "airplane-recovering";
 
 export type DepotTenangFeedback =
   | "cargo-grabbed"
   | "cargo-released"
   | "cargo-recovered"
+  | "airplane-grabbed"
+  | "airplane-released"
+  | "airplane-recovered"
   | "quiet-response";
 
 type DepotTenangCallbacks = {
@@ -36,6 +44,18 @@ const CARGO_GRAB_RADIUS = 68;
 const CARGO_RECOVERY_SPEED = 180;
 const TRUCK_ARRIVAL_RATIO = 0.42;
 const TRUCK_START_RATIO = 0.14;
+const AIRPLANE_WIDTH = 112;
+const AIRPLANE_HEIGHT = 42;
+const AIRPLANE_SPEED = 3.8;
+const AIRPLANE_FLIGHT_SPEED = 3.2;
+const AIRPLANE_MAX_SPEED = 5;
+const AIRPLANE_MAX_TILT = 0.32;
+const AIRPLANE_GRAB_RADIUS = 88;
+const AIRPLANE_FLIGHT_INPUTS = 2;
+const AIRPLANE_FLIGHT_MIN_Y_RATIO = 0.14;
+const AIRPLANE_FLIGHT_MAX_Y_RATIO = 0.56;
+const AIRPLANE_FLIGHT_MIN_X_RATIO = 0.2;
+const AIRPLANE_FLIGHT_MAX_X_RATIO = 0.78;
 const COLORS = {
   sky: 0xb8d9dc,
   skyLight: 0xdff0ed,
@@ -52,7 +72,13 @@ const COLORS = {
   truckDark: 0x9b4d46,
   truckWindow: 0xa7d6d9,
   wheel: 0x34424a,
+  airplane: 0xf1ad63,
+  airplaneDark: 0xb86d53,
+  airplaneWindow: 0xb9d9d8,
+  corridor: 0xf7edbf,
 };
+
+type AirplanePhase = "ready" | "taking-off" | "flying" | "returning" | "quiet" | "recovering";
 
 export class DepotTenangScene extends Phaser.Scene {
   private readonly onStateChange: (state: DepotTenangState) => void;
@@ -76,6 +102,16 @@ export class DepotTenangScene extends Phaser.Scene {
   private truckRecoveryTarget?: { x: number; y: number };
   private cargoRecoveryActive = false;
   private lastTruckMovementAt = 0;
+  private airplaneVisual?: Phaser.GameObjects.Container;
+  private airplaneBody?: MatterJS.BodyType;
+  private airplanePhase: AirplanePhase = "ready";
+  private airplaneFlightInputCount = 0;
+  private airplaneFlightTarget = { x: 0, y: 0 };
+  private airplaneRecoveryTarget?: { x: number; y: number };
+  private airplaneRecoveryResumePhase: AirplanePhase = "flying";
+  private airplanePointerId?: number;
+  private airplaneGrabTarget = { x: 0, y: 0 };
+  private lastAirplaneMovementAt = 0;
 
   public constructor(callbacks: DepotTenangCallbacks) {
     super({ key: "DepotTenangScene" });
@@ -89,6 +125,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.diorama = this.add.graphics();
     this.createMatterBounds();
     this.createTruck();
+    this.createAirplane();
     this.createRestingPlaceLabels();
     this.layoutDiorama();
 
@@ -112,9 +149,13 @@ export class DepotTenangScene extends Phaser.Scene {
     this.updateCargoSafety();
     this.updateGrabbedCargo();
     this.updateTruckJourneyMovement();
+    this.updateAirplaneSafety();
+    this.updateAirplaneGrabbed();
+    this.updateAirplaneJourneyMovement();
 
     this.truckVisual.setPosition(this.truckBody.position.x, this.truckBody.position.y);
     this.truckVisual.setRotation(this.truckBody.angle * (this.reducedMotion ? 0.08 : 0.2));
+    this.updateAirplaneVisual();
 
     if (this.truckPhase === "moving" && this.truckBody.position.x >= this.getTruckArrivalPoint().x) {
       this.settleTruckAtArrival();
@@ -212,6 +253,42 @@ export class DepotTenangScene extends Phaser.Scene {
     ]);
   }
 
+  private createAirplane(): void {
+    const restingPoint = this.getAirplaneHangarPoint();
+    this.airplaneBody = this.matter.add.rectangle(
+      restingPoint.x,
+      restingPoint.y,
+      AIRPLANE_WIDTH,
+      AIRPLANE_HEIGHT,
+      {
+        chamfer: { radius: 12 },
+        density: 0.001,
+        friction: 0.4,
+        frictionAir: 0.3,
+        restitution: 0,
+        label: "active-airplane",
+      },
+    );
+
+    this.airplaneVisual = this.add.container(restingPoint.x, restingPoint.y);
+    this.airplaneVisual.setDepth(10);
+    this.airplaneVisual.add([
+      this.add.ellipse(0, 28, 116, 14, 0x3f4b4b, 0.16),
+      this.add.rectangle(0, 0, 92, 28, COLORS.airplane).setStrokeStyle(3, COLORS.airplaneDark),
+      this.add.rectangle(-3, 8, 74, 8, COLORS.airplaneDark),
+      this.add.rectangle(36, -5, 18, 34, COLORS.airplaneDark),
+      this.add.rectangle(45, -3, 17, 12, COLORS.airplaneWindow).setStrokeStyle(2, COLORS.ink),
+      this.add.circle(22, -4, 5, COLORS.airplaneWindow).setStrokeStyle(2, COLORS.ink),
+      this.add.circle(6, -4, 5, COLORS.airplaneWindow).setStrokeStyle(2, COLORS.ink),
+      this.add.text(-12, -9, "PESAWAT", {
+        color: "#fff6e7",
+        fontFamily: "Nunito, Arial, sans-serif",
+        fontSize: "11px",
+        fontStyle: "bold",
+      }).setOrigin(0.5),
+    ]);
+  }
+
   private createCargo(): void {
     this.clearCargo();
 
@@ -244,6 +321,7 @@ export class DepotTenangScene extends Phaser.Scene {
       this.createLabel("GARASI", COLORS.truckDark),
       this.createLabel("STASIUN", COLORS.rail),
       this.createLabel("HANGAR", COLORS.depotShadow),
+      this.createLabel("KORIDOR AMAN", COLORS.airplaneDark),
     ];
   }
 
@@ -281,6 +359,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.drawHangar(width * 0.83, railY - 55);
     this.drawStation(width * 0.53, railY - 38);
     this.drawGarage(width * 0.13, roadY - 58);
+    this.drawAirplaneCorridor(width, height);
     this.drawRail(width, railY);
     this.drawRoad(width, roadY);
     this.drawDioramaFrame(width, height);
@@ -288,6 +367,25 @@ export class DepotTenangScene extends Phaser.Scene {
     this.positionLabel(this.depotLabels[0], width * 0.13, roadY - 110);
     this.positionLabel(this.depotLabels[1], width * 0.53, railY - 92);
     this.positionLabel(this.depotLabels[2], width * 0.83, railY - 143);
+    const corridor = this.getAirplaneFlightBounds();
+    this.positionLabel(this.depotLabels[3], (corridor.minX + corridor.maxX) / 2, corridor.minY - 18);
+  }
+
+  private drawAirplaneCorridor(width: number, height: number): void {
+    const corridor = this.getAirplaneFlightBounds(width, height);
+    this.diorama?.lineStyle(3, COLORS.corridor, 0.85).strokeRoundedRect(
+      corridor.minX,
+      corridor.minY,
+      corridor.maxX - corridor.minX,
+      corridor.maxY - corridor.minY,
+      18,
+    );
+    this.diorama?.lineStyle(2, COLORS.corridor, 0.34).lineBetween(
+      corridor.minX,
+      (corridor.minY + corridor.maxY) / 2,
+      corridor.maxX,
+      (corridor.minY + corridor.maxY) / 2,
+    );
   }
 
   private drawRoad(width: number, roadY: number): void {
@@ -348,11 +446,43 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
+    if (this.isAirplaneJourneyActive()) {
+      this.advanceAirplaneJourney(event.key);
+      return;
+    }
+
+    if (this.truckPhase === "quiet" && this.airplanePhase === "ready") {
+      this.startAirplaneJourney();
+      return;
+    }
+
     this.advanceTruckJourney();
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
     if (this.grabbedCargo || this.cargoRecoveryActive || this.truckRecoveryTarget) {
+      return;
+    }
+
+    if (this.isAirplaneJourneyActive()) {
+      if (this.airplanePhase === "flying") {
+        const airplane = this.findAirplaneAt(pointer.x, pointer.y);
+        if (airplane) {
+          this.beginAirplaneGrab(pointer);
+          return;
+        }
+      }
+
+      this.advanceAirplaneJourney();
+      return;
+    }
+
+    if (
+      this.airplanePhase === "ready" &&
+      (this.truckPhase === "ready" || this.truckPhase === "quiet") &&
+      this.isNearAirplaneRestingPlace(pointer.x, pointer.y)
+    ) {
+      this.startAirplaneJourney();
       return;
     }
 
@@ -369,39 +499,49 @@ export class DepotTenangScene extends Phaser.Scene {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this.grabbedCargo || this.grabPointerId !== pointer.id) {
+    if (this.grabbedCargo && this.grabPointerId === pointer.id) {
+      this.grabTarget.x = pointer.x;
+      this.grabTarget.y = pointer.y;
       return;
     }
 
-    this.grabTarget.x = pointer.x;
-    this.grabTarget.y = pointer.y;
+    if (this.airplanePointerId === pointer.id) {
+      this.airplaneGrabTarget.x = pointer.x;
+      this.airplaneGrabTarget.y = pointer.y;
+    }
   }
 
   private handlePointerUp(pointer: Phaser.Input.Pointer): void {
-    if (!this.grabbedCargo || this.grabPointerId !== pointer.id) {
+    if (this.grabbedCargo && this.grabPointerId === pointer.id) {
+      const releasedCargo = this.grabbedCargo;
+      const elapsed = Math.max(this.time.now - this.grabStartedAt, 1);
+      const impulseScale = this.getPhysicsImpulseScale();
+      const swipeVelocity = {
+        x: this.clamp(
+          (pointer.x - this.grabStart.x) / elapsed * 8 * impulseScale,
+          -CARGO_MAX_SPEED,
+          CARGO_MAX_SPEED,
+        ),
+        y: this.clamp(
+          (pointer.y - this.grabStart.y) / elapsed * 8 * impulseScale,
+          -CARGO_MAX_SPEED,
+          CARGO_MAX_SPEED,
+        ),
+      };
+      this.matter.body.setVelocity(releasedCargo, swipeVelocity);
+      this.matter.body.setAngularVelocity(releasedCargo, 0);
+      this.onFeedback?.("cargo-released");
+      this.grabbedCargo = undefined;
+      this.grabPointerId = undefined;
       return;
     }
 
-    const releasedCargo = this.grabbedCargo;
-    const elapsed = Math.max(this.time.now - this.grabStartedAt, 1);
-    const impulseScale = this.getPhysicsImpulseScale();
-    const swipeVelocity = {
-      x: this.clamp(
-        (pointer.x - this.grabStart.x) / elapsed * 8 * impulseScale,
-        -CARGO_MAX_SPEED,
-        CARGO_MAX_SPEED,
-      ),
-      y: this.clamp(
-        (pointer.y - this.grabStart.y) / elapsed * 8 * impulseScale,
-        -CARGO_MAX_SPEED,
-        CARGO_MAX_SPEED,
-      ),
-    };
-    this.matter.body.setVelocity(releasedCargo, swipeVelocity);
-    this.matter.body.setAngularVelocity(releasedCargo, 0);
-    this.onFeedback?.("cargo-released");
-    this.grabbedCargo = undefined;
-    this.grabPointerId = undefined;
+    if (this.airplanePointerId !== pointer.id) {
+      return;
+    }
+
+    this.airplanePointerId = undefined;
+    this.onFeedback?.("airplane-released");
   }
 
   private advanceTruckJourney(): void {
@@ -418,6 +558,399 @@ export class DepotTenangScene extends Phaser.Scene {
     if (this.truckPhase === "quiet") {
       this.onFeedback?.("quiet-response");
     }
+  }
+
+  private isAirplaneJourneyActive(): boolean {
+    return (
+      this.airplanePhase === "taking-off" ||
+      this.airplanePhase === "flying" ||
+      this.airplanePhase === "returning" ||
+      this.airplanePhase === "recovering"
+    );
+  }
+
+  private startAirplaneJourney(): void {
+    if (
+      !this.airplaneBody ||
+      this.isAirplaneJourneyActive() ||
+      (this.truckPhase !== "ready" && this.truckPhase !== "quiet")
+    ) {
+      return;
+    }
+
+    const restingPoint = this.getAirplaneHangarPoint();
+    const takeoffPoint = this.getAirplaneTakeoffPoint();
+    this.airplanePhase = "taking-off";
+    this.airplaneFlightInputCount = 0;
+    this.airplaneFlightTarget = takeoffPoint;
+    this.airplaneRecoveryTarget = undefined;
+    this.lastAirplaneMovementAt = this.time.now;
+    this.matter.body.setPosition(this.airplaneBody, restingPoint);
+    this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
+    this.matter.body.setAngle(this.airplaneBody, 0);
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.wakeBody(this.airplaneBody);
+    this.onActionAccepted?.();
+    this.onStateChange("airplane-taking-off");
+  }
+
+  private advanceAirplaneJourney(key = ""): void {
+    if (this.airplanePhase === "quiet") {
+      this.onFeedback?.("quiet-response");
+      return;
+    }
+
+    if (this.airplanePhase !== "flying") {
+      return;
+    }
+
+    const corridor = this.getAirplaneFlightBounds();
+    const verticalDirection =
+      key === "ArrowUp" || key.toLowerCase() === "w"
+        ? -1
+        : key === "ArrowDown" || key.toLowerCase() === "s"
+          ? 1
+          : this.airplaneFlightInputCount === 0
+            ? -1
+            : 1;
+    const horizontalDirection =
+      key === "ArrowLeft" || key.toLowerCase() === "a"
+        ? -1
+        : key === "ArrowRight" || key.toLowerCase() === "d"
+          ? 1
+          : 0;
+    const nextInputCount = this.airplaneFlightInputCount + 1;
+
+    this.airplaneFlightTarget = {
+      x: this.clamp(
+        this.airplaneBody?.position.x ?? (corridor.minX + corridor.maxX) / 2 + horizontalDirection * 74,
+        corridor.minX + 24,
+        corridor.maxX - 24,
+      ) + horizontalDirection * 74,
+      y: this.clamp(
+        (this.airplaneBody?.position.y ?? (corridor.minY + corridor.maxY) / 2) +
+          verticalDirection * 58,
+        corridor.minY + 24,
+        corridor.maxY - 24,
+      ),
+    };
+    this.airplaneFlightTarget.x = this.clamp(
+      this.airplaneFlightTarget.x,
+      corridor.minX + 24,
+      corridor.maxX - 24,
+    );
+
+    this.airplaneFlightInputCount = nextInputCount;
+    if (nextInputCount >= AIRPLANE_FLIGHT_INPUTS) {
+      this.startAirplaneReturn();
+      return;
+    }
+
+    this.onActionAccepted?.();
+  }
+
+  private startAirplaneReturn(): void {
+    if (!this.airplaneBody || this.airplanePhase !== "flying") {
+      return;
+    }
+
+    this.airplanePhase = "returning";
+    this.airplaneFlightTarget = this.getAirplaneHangarPoint();
+    this.lastAirplaneMovementAt = this.time.now;
+    this.wakeBody(this.airplaneBody);
+    this.matter.body.setVelocity(this.airplaneBody, { x: -AIRPLANE_SPEED, y: 0 });
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.onActionAccepted?.();
+    this.onStateChange("airplane-returning");
+  }
+
+  private settleAirplaneAtHangar(): void {
+    if (!this.airplaneBody) {
+      return;
+    }
+
+    this.matter.body.setPosition(this.airplaneBody, this.getAirplaneHangarPoint());
+    this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
+    this.matter.body.setAngle(this.airplaneBody, 0);
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.airplanePointerId = undefined;
+    this.airplaneRecoveryTarget = undefined;
+    this.airplanePhase = "quiet";
+    this.airplaneFlightInputCount = 0;
+    this.onStateChange("airplane-quiet");
+  }
+
+  private updateAirplaneJourneyMovement(): void {
+    if (!this.airplaneBody) {
+      return;
+    }
+
+    if (this.airplaneRecoveryTarget) {
+      const reachedRecoveryTarget = this.moveAirplaneTowards(
+        this.airplaneRecoveryTarget,
+        AIRPLANE_FLIGHT_SPEED,
+      );
+      if (!reachedRecoveryTarget) {
+        return;
+      }
+
+      this.airplaneRecoveryTarget = undefined;
+      this.airplanePhase = this.airplaneRecoveryResumePhase;
+      this.matter.body.setAngle(this.airplaneBody, 0);
+      this.onFeedback?.("airplane-recovered");
+      this.onStateChange(this.getAirplaneState());
+      return;
+    }
+
+    if (this.airplanePhase === "taking-off") {
+      if (this.moveAirplaneTowards(this.getAirplaneTakeoffPoint(), AIRPLANE_SPEED)) {
+        this.airplanePhase = "flying";
+        this.airplaneFlightTarget = this.getAirplaneFlightCenter();
+        this.airplaneFlightInputCount = 0;
+        this.onStateChange("airplane-flying");
+      }
+      return;
+    }
+
+    if (this.airplanePhase === "flying") {
+      this.moveAirplaneTowards(this.airplaneFlightTarget, AIRPLANE_FLIGHT_SPEED);
+      return;
+    }
+
+    if (this.airplanePhase === "returning") {
+      if (this.moveAirplaneTowards(this.getAirplaneHangarPoint(), AIRPLANE_SPEED)) {
+        this.settleAirplaneAtHangar();
+      }
+    }
+  }
+
+  private moveAirplaneTowards(destination: { x: number; y: number }, speed: number): boolean {
+    if (!this.airplaneBody) {
+      return false;
+    }
+
+    const position = this.airplaneBody.position;
+    const distance = Phaser.Math.Distance.Between(position.x, position.y, destination.x, destination.y);
+    if (distance <= 8) {
+      this.matter.body.setPosition(this.airplaneBody, destination);
+      this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
+      this.matter.body.setAngle(this.airplaneBody, 0);
+      this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+      this.lastAirplaneMovementAt = this.time.now;
+      return true;
+    }
+
+    const now = this.time.now;
+    const elapsed = this.lastAirplaneMovementAt === 0 ? 16.67 : this.clamp(now - this.lastAirplaneMovementAt, 0, 120);
+    this.lastAirplaneMovementAt = now;
+    const step = Math.min(speed * (elapsed / 16.67), distance);
+    const progress = step / distance;
+    this.matter.body.setPosition(this.airplaneBody, {
+      x: position.x + (destination.x - position.x) * progress,
+      y: position.y + (destination.y - position.y) * progress,
+    });
+    this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
+    this.matter.body.setAngle(
+      this.airplaneBody,
+      this.clamp(
+        (destination.y - position.y) * 0.004,
+        -AIRPLANE_MAX_TILT,
+        AIRPLANE_MAX_TILT,
+      ),
+    );
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    return false;
+  }
+
+  private updateAirplaneSafety(): void {
+    if (!this.airplaneBody) {
+      return;
+    }
+
+    const velocity = this.airplaneBody.velocity;
+    this.matter.body.setVelocity(this.airplaneBody, {
+      x: this.clamp(velocity.x, -AIRPLANE_MAX_SPEED, AIRPLANE_MAX_SPEED),
+      y: this.clamp(velocity.y, -AIRPLANE_MAX_SPEED, AIRPLANE_MAX_SPEED),
+    });
+    this.matter.body.setAngularVelocity(
+      this.airplaneBody,
+      this.clamp(this.airplaneBody.angularVelocity, -0.08, 0.08),
+    );
+
+    if (!this.isAirplaneJourneyActive()) {
+      return;
+    }
+
+    const corridor = this.getAirplaneFlightBounds();
+    const isFlying = this.airplanePhase === "flying";
+    const minX = isFlying ? corridor.minX - 30 : 36;
+    const maxX = isFlying ? corridor.maxX + 30 : this.getWorldWidth() - 36;
+    const minY = isFlying ? corridor.minY - 30 : 36;
+    const maxY = isFlying ? corridor.maxY + 30 : this.getWorldHeight() - 90;
+    const position = this.airplaneBody.position;
+    const isOutOfBounds =
+      position.x < minX ||
+      position.x > maxX ||
+      position.y < minY ||
+      position.y > maxY;
+    const isInverted = Math.abs(this.airplaneBody.angle) > AIRPLANE_MAX_TILT * 2;
+
+    if ((isOutOfBounds || isInverted) && this.airplanePhase !== "recovering") {
+      this.beginAirplaneRecovery();
+      return;
+    }
+
+    if (
+      (this.airplanePhase === "taking-off" || this.airplanePhase === "returning") &&
+      this.time.now - this.lastAirplaneMovementAt > 2_800
+    ) {
+      this.beginAirplaneRecovery();
+    }
+  }
+
+  private updateAirplaneGrabbed(): void {
+    if (!this.airplaneBody || this.airplanePointerId === undefined || this.airplanePhase !== "flying") {
+      return;
+    }
+
+    const target = this.airplaneGrabTarget;
+    const pointerTargetIsUnsafe =
+      target.x < 42 ||
+      target.x > this.getWorldWidth() - 42 ||
+      target.y < 42 ||
+      target.y > this.getWorldHeight() - 42;
+    if (pointerTargetIsUnsafe) {
+      this.beginAirplaneRecovery();
+      return;
+    }
+
+    const corridor = this.getAirplaneFlightBounds();
+    this.airplaneFlightTarget = {
+      x: this.clamp(target.x, corridor.minX + 24, corridor.maxX - 24),
+      y: this.clamp(target.y, corridor.minY + 24, corridor.maxY - 24),
+    };
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+  }
+
+  private updateAirplaneVisual(): void {
+    if (!this.airplaneBody || !this.airplaneVisual) {
+      return;
+    }
+
+    this.airplaneVisual.setPosition(this.airplaneBody.position.x, this.airplaneBody.position.y);
+    this.airplaneVisual.setRotation(
+      this.airplaneBody.angle * (this.reducedMotion ? 0.35 : 1),
+    );
+  }
+
+  private beginAirplaneGrab(pointer: Phaser.Input.Pointer): void {
+    if (!this.airplaneBody || this.airplanePhase !== "flying") {
+      return;
+    }
+
+    this.airplanePointerId = pointer.id;
+    this.airplaneGrabTarget.x = pointer.x;
+    this.airplaneGrabTarget.y = pointer.y;
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.onFeedback?.("airplane-grabbed");
+  }
+
+  private findAirplaneAt(x: number, y: number): boolean {
+    if (!this.airplaneBody) {
+      return false;
+    }
+
+    const selectionRadius = Math.max(AIRPLANE_GRAB_RADIUS, this.getWorldWidth() * 0.25);
+    return Phaser.Math.Distance.Between(
+      this.airplaneBody.position.x,
+      this.airplaneBody.position.y,
+      x,
+      y,
+    ) <= selectionRadius;
+  }
+
+  private isNearAirplaneRestingPlace(x: number, y: number): boolean {
+    const restingPoint = this.getAirplaneHangarPoint();
+    const selectionRadius = Math.max(AIRPLANE_GRAB_RADIUS + 30, this.getWorldWidth() * 0.25);
+    return Phaser.Math.Distance.Between(restingPoint.x, restingPoint.y, x, y) <= selectionRadius;
+  }
+
+  private beginAirplaneRecovery(): void {
+    if (!this.airplaneBody || this.airplanePhase === "recovering") {
+      return;
+    }
+
+    const resumePhase =
+      this.airplanePhase === "returning"
+        ? "returning"
+        : this.airplanePhase === "taking-off"
+          ? "taking-off"
+          : "flying";
+    this.airplaneRecoveryResumePhase = resumePhase;
+    this.airplaneRecoveryTarget =
+      resumePhase === "returning"
+        ? this.getAirplaneHangarPoint()
+        : resumePhase === "taking-off"
+          ? this.getAirplaneTakeoffPoint()
+          : this.getAirplaneFlightCenter();
+    this.airplanePointerId = undefined;
+    this.airplanePhase = "recovering";
+    this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
+    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.onStateChange("airplane-recovering");
+  }
+
+  private getAirplaneState(): DepotTenangState {
+    if (this.airplanePhase === "taking-off") {
+      return "airplane-taking-off";
+    }
+
+    if (this.airplanePhase === "flying") {
+      return "airplane-flying";
+    }
+
+    if (this.airplanePhase === "returning") {
+      return "airplane-returning";
+    }
+
+    if (this.airplanePhase === "recovering") {
+      return "airplane-recovering";
+    }
+
+    return "airplane-quiet";
+  }
+
+  private getAirplaneHangarPoint(): { x: number; y: number } {
+    const roadY = Math.min(ROAD_Y, this.getWorldHeight() * 0.75);
+    const railY = roadY - 96;
+    return {
+      x: this.getWorldWidth() * 0.83,
+      y: Math.min(railY - 15, this.getWorldHeight() - 120),
+    };
+  }
+
+  private getAirplaneTakeoffPoint(): { x: number; y: number } {
+    const corridor = this.getAirplaneFlightBounds();
+    return { x: corridor.maxX, y: corridor.maxY };
+  }
+
+  private getAirplaneFlightCenter(): { x: number; y: number } {
+    const corridor = this.getAirplaneFlightBounds();
+    return {
+      x: (corridor.minX + corridor.maxX) / 2,
+      y: (corridor.minY + corridor.maxY) / 2,
+    };
+  }
+
+  private getAirplaneFlightBounds(
+    width = this.getWorldWidth(),
+    height = this.getWorldHeight(),
+  ): { minX: number; maxX: number; minY: number; maxY: number } {
+    const minX = width * AIRPLANE_FLIGHT_MIN_X_RATIO;
+    const maxX = width * AIRPLANE_FLIGHT_MAX_X_RATIO;
+    const minY = height * AIRPLANE_FLIGHT_MIN_Y_RATIO;
+    const maxY = Math.min(height * AIRPLANE_FLIGHT_MAX_Y_RATIO, ROAD_Y - AIRPLANE_HEIGHT);
+    return { minX, maxX, minY, maxY };
   }
 
   private startTruckJourney(): void {
