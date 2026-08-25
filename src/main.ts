@@ -86,7 +86,7 @@ app.innerHTML = `
         class="game-mount"
         tabindex="0"
         role="application"
-        aria-label="Child Stage Depot Tenang. Tekan tombol atau ketuk untuk melihat truk berjalan."
+        aria-label="Child Stage Depot Tenang. Tekan tombol atau ketuk untuk melihat kendaraan berjalan."
       ></div>
       <div class="companion-gate-touch companion-gate-touch--left" data-testid="companion-gate-touch-left" aria-hidden="true"></div>
       <div class="companion-gate-touch companion-gate-touch--right" data-testid="companion-gate-touch-right" aria-hidden="true"></div>
@@ -217,10 +217,21 @@ function updateStageState(state: DepotTenangState): void {
     returning: "Truk kembali ke garasi",
     quiet: "Truk tenang di garasi",
     recovering: "Muatan kembali perlahan",
+    "train-moving": "Kereta sedang berjalan",
+    "train-station": "Kereta di stasiun",
+    "train-returning": "Kereta kembali ke depot",
+    "train-quiet": "Kereta tenang di depot",
+    "train-recovering": "Kereta kembali perlahan",
   };
 
   gameStatus.textContent = labels[state];
-  activeVehicle.textContent = state === "ready" ? "Belum ada kendaraan aktif" : "Truk aktif";
+  const trainIsActive = state.startsWith("train-") && state !== "train-quiet";
+  const vehicleIsResting = state === "ready" || state === "quiet" || state === "train-quiet";
+  activeVehicle.textContent = trainIsActive
+    ? "Kereta aktif"
+    : vehicleIsResting
+      ? "Belum ada kendaraan aktif"
+      : "Truk aktif";
 }
 
 function updateStageFeedback(feedback: DepotTenangFeedback): void {
@@ -228,6 +239,9 @@ function updateStageFeedback(feedback: DepotTenangFeedback): void {
     "cargo-grabbed": "Muatan bergerak perlahan",
     "cargo-released": "Muatan dilepas dengan lembut",
     "cargo-recovered": "Muatan kembali perlahan",
+    "train-grabbed": "Kereta bergerak perlahan",
+    "train-released": "Kereta dilepas dengan lembut",
+    "train-recovered": "Kereta kembali perlahan",
     "quiet-response": "Depot tetap tenang",
   } as const;
   gameStatus.textContent = labels[feedback];
