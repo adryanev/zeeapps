@@ -4,6 +4,7 @@ export type DepotTenangState = "ready" | "moving";
 
 type DepotTenangCallbacks = {
   onStateChange: (state: DepotTenangState) => void;
+  reducedMotion?: boolean;
 };
 
 const WORLD_WIDTH = 960;
@@ -29,6 +30,7 @@ const COLORS = {
 
 export class DepotTenangScene extends Phaser.Scene {
   private readonly onStateChange: (state: DepotTenangState) => void;
+  private readonly reducedMotion: boolean;
   private diorama?: Phaser.GameObjects.Graphics;
   private depotLabels: Phaser.GameObjects.Text[] = [];
   private truckVisual?: Phaser.GameObjects.Container;
@@ -39,6 +41,7 @@ export class DepotTenangScene extends Phaser.Scene {
   public constructor(callbacks: DepotTenangCallbacks) {
     super({ key: "DepotTenangScene" });
     this.onStateChange = callbacks.onStateChange;
+    this.reducedMotion = callbacks.reducedMotion ?? false;
   }
 
   public create(): void {
@@ -62,7 +65,7 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     this.truckVisual.setPosition(this.truckBody.position.x, this.truckBody.position.y);
-    this.truckVisual.setRotation(this.truckBody.angle * 0.2);
+    this.truckVisual.setRotation(this.truckBody.angle * (this.reducedMotion ? 0.08 : 0.2));
 
     if (!this.truckJourneyStarted || this.truckJourneySettled) {
       return;
@@ -247,7 +250,7 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     this.truckJourneyStarted = true;
-    this.matter.body.setVelocity(this.truckBody, { x: 3.6, y: 0 });
+    this.matter.body.setVelocity(this.truckBody, { x: this.reducedMotion ? 2.2 : 3.6, y: 0 });
     this.onStateChange("moving");
   }
 
