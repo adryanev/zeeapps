@@ -1,0 +1,30 @@
+export type DepotTenangState =
+  | "ready"
+  | "moving"
+  | "cargo"
+  | "returning"
+  | "quiet"
+  | "recovering"
+  | "train-moving"
+  | "train-station"
+  | "train-returning"
+  | "train-quiet"
+  | "train-recovering"
+  | "airplane-taking-off"
+  | "airplane-flying"
+  | "airplane-returning"
+  | "airplane-quiet"
+  | "airplane-recovering";
+
+export type DepotTenangFeedback =
+  | "cargo-grabbed"
+  | "cargo-released"
+  | "cargo-recovered"
+  | "train-grabbed"
+  | "train-released"
+  | "train-recovered"
+  | "airplane-grabbed"
+  | "airplane-released"
+  | "airplane-recovered"
+  | "quiet-response"
+  | "vehicle-selected";
