@@ -65,6 +65,10 @@ const AIRPLANE_FLIGHT_MIN_Y_RATIO = 0.14;
 const AIRPLANE_FLIGHT_MAX_Y_RATIO = 0.56;
 const AIRPLANE_FLIGHT_MIN_X_RATIO = 0.2;
 const AIRPLANE_FLIGHT_MAX_X_RATIO = 0.78;
+const RECOVERY_LOW_MOTION_DISTANCE = 0.75;
+const RECOVERY_TARGET_DISTANCE = 18;
+const RECOVERY_STUCK_TIMEOUT_MS = 1_800;
+const RECOVERY_TARGET_CHANGE_DISTANCE = 8;
 const COLORS = {
   sky: 0xb8d9dc,
   skyLight: 0xdff0ed,
@@ -101,6 +105,11 @@ const DIORAMA_TIME_PALETTES = [
 type ActiveVehicle = "none" | "truck" | "train" | "airplane";
 type TrainPhase = "ready" | "moving" | "station" | "returning" | "quiet";
 type AirplanePhase = "ready" | "taking-off" | "flying" | "returning" | "quiet" | "recovering";
+type MotionWatch = {
+  position: { x: number; y: number };
+  target: { x: number; y: number };
+  lowMotionSince: number;
+};
 
 export class DepotTenangScene extends Phaser.Scene {
   private readonly onStateChange: (state: DepotTenangState) => void;
@@ -155,6 +164,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private lastAirplaneMovementAt = 0;
   private completedJourneys = 0;
   private playCycleQuietEntered = false;
+  private motionWatches = new Map<MatterJS.BodyType, MotionWatch>();
 
   public constructor(callbacks: DepotTenangCallbacks) {
     super({ key: "DepotTenangScene" });
@@ -201,6 +211,10 @@ export class DepotTenangScene extends Phaser.Scene {
     this.updateAirplaneSafety();
     this.updateAirplaneGrabbed();
     this.updateAirplaneJourneyMovement();
+    this.updateTruckStuckDetection();
+    this.updateCargoStuckDetection();
+    this.updateTrainStuckDetection();
+    this.updateAirplaneStuckDetection();
 
     this.truckVisual.setPosition(this.truckBody.position.x, this.truckBody.position.y);
     this.truckVisual.setRotation(this.truckBody.angle * (this.reducedMotion ? 0.08 : 0.2));
@@ -672,6 +686,14 @@ export class DepotTenangScene extends Phaser.Scene {
       return undefined;
     }
 
+    if (
+      !["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "Enter", " ", "Space", "Spacebar"].includes(
+        event.key,
+      )
+    ) {
+      return undefined;
+    }
+
     return "advance-vehicle-journey";
   }
 
@@ -787,18 +809,23 @@ export class DepotTenangScene extends Phaser.Scene {
     if (this.grabbedCargo && this.grabPointerId === pointer.id) {
       this.grabTarget.x = pointer.x;
       this.grabTarget.y = pointer.y;
+      this.resetMotionWatch(this.grabbedCargo, this.grabTarget);
       return;
     }
 
     if (this.trainGrabbedBody && this.trainGrabPointerId === pointer.id) {
       this.trainGrabTarget.x = pointer.x;
       this.trainGrabTarget.y = pointer.y;
+      this.resetMotionWatch(this.trainGrabbedBody, this.trainGrabTarget);
       return;
     }
 
     if (this.airplanePointerId === pointer.id) {
       this.airplaneGrabTarget.x = pointer.x;
       this.airplaneGrabTarget.y = pointer.y;
+      if (this.airplaneBody) {
+        this.resetMotionWatch(this.airplaneBody, this.airplaneGrabTarget);
+      }
     }
   }
 
@@ -989,6 +1016,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
     this.matter.body.setAngle(this.airplaneBody, 0);
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.resetMotionWatch(this.airplaneBody, takeoffPoint);
     this.wakeBody(this.airplaneBody);
     this.onActionAccepted?.();
     this.onStateChange("airplane-taking-off");
@@ -1033,6 +1061,9 @@ export class DepotTenangScene extends Phaser.Scene {
         corridor.maxY - 24,
       ),
     };
+    if (this.airplaneBody) {
+      this.resetMotionWatch(this.airplaneBody, this.airplaneFlightTarget);
+    }
 
     this.airplaneFlightInputCount = nextInputCount;
     if (nextInputCount >= AIRPLANE_FLIGHT_INPUTS) {
@@ -1054,6 +1085,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.wakeBody(this.airplaneBody);
     this.matter.body.setVelocity(this.airplaneBody, { x: -AIRPLANE_SPEED, y: 0 });
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
+    this.resetMotionWatch(this.airplaneBody, this.getAirplaneHangarPoint());
     this.onActionAccepted?.();
     this.onStateChange("airplane-returning");
   }
@@ -1184,12 +1216,6 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    if (
-      (this.airplanePhase === "taking-off" || this.airplanePhase === "returning") &&
-      this.time.now - this.lastAirplaneMovementAt > 2_800
-    ) {
-      this.beginAirplaneRecovery();
-    }
   }
 
   private updateAirplaneGrabbed(): void {
@@ -1358,6 +1384,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.wakeBody(this.truckBody);
     this.matter.body.setVelocity(this.truckBody, { x: TRUCK_SPEED, y: 0 });
     this.matter.body.setAngularVelocity(this.truckBody, 0);
+    this.resetMotionWatch(this.truckBody, this.getTruckArrivalPoint());
     this.onActionAccepted?.();
     this.onStateChange("moving");
   }
@@ -1372,6 +1399,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.wakeBody(this.truckBody);
     this.matter.body.setVelocity(this.truckBody, { x: -TRUCK_SPEED, y: 0 });
     this.matter.body.setAngularVelocity(this.truckBody, 0);
+    this.resetMotionWatch(this.truckBody, this.getTruckStartingPoint());
     this.onActionAccepted?.();
     this.onStateChange("returning");
   }
@@ -1416,6 +1444,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.wakeTrainBodies();
     this.matter.body.setVelocity(this.trainBody, { x: -TRAIN_SPEED, y: 0 });
     this.matter.body.setAngularVelocity(this.trainBody, 0);
+    this.resetTrainMotionWatches(this.getTrainArrivalPoint());
     this.onActionAccepted?.();
     this.onStateChange("train-moving");
   }
@@ -1430,6 +1459,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.wakeTrainBodies();
     this.matter.body.setVelocity(this.trainBody, { x: TRAIN_SPEED, y: 0 });
     this.matter.body.setAngularVelocity(this.trainBody, 0);
+    this.resetTrainMotionWatches(this.getTrainStartingPoint());
     this.onActionAccepted?.();
     this.onStateChange("train-returning");
   }
@@ -1499,6 +1529,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.grabStart.y = pointer.y;
     this.grabStartedAt = this.time.now;
     this.matter.body.setAngularVelocity(cargo, 0);
+    this.resetMotionWatch(cargo, this.grabTarget);
     this.onFeedback?.("cargo-grabbed");
   }
 
@@ -1511,6 +1542,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.trainGrabStart.y = pointer.y;
     this.trainGrabStartedAt = this.time.now;
     this.matter.body.setAngularVelocity(trainBody, 0);
+    this.resetMotionWatch(trainBody, this.trainGrabTarget);
     this.onFeedback?.("train-grabbed");
   }
 
@@ -1645,6 +1677,167 @@ export class DepotTenangScene extends Phaser.Scene {
     );
   }
 
+  private updateTruckStuckDetection(): void {
+    if (
+      !this.truckBody ||
+      this.activeVehicle !== "truck" ||
+      (this.truckPhase !== "moving" && this.truckPhase !== "returning") ||
+      this.truckRecoveryTarget
+    ) {
+      return;
+    }
+
+    const target =
+      this.truckPhase === "returning" ? this.getTruckStartingPoint() : this.getTruckArrivalPoint();
+    if (this.isBodyStuck(this.truckBody, target)) {
+      this.beginTruckRecovery();
+    }
+  }
+
+  private beginTruckRecovery(): void {
+    if (!this.truckBody || this.truckRecoveryTarget) {
+      return;
+    }
+
+    this.truckRecoveryTarget =
+      this.truckPhase === "returning" || this.truckPhase === "quiet"
+        ? this.getTruckStartingPoint()
+        : this.getTruckArrivalPoint();
+    this.resetMotionWatch(this.truckBody, this.truckRecoveryTarget);
+    this.onStateChange("recovering");
+  }
+
+  private updateCargoStuckDetection(): void {
+    if (
+      this.truckPhase !== "cargo" ||
+      !this.grabbedCargo ||
+      this.grabPointerId === undefined ||
+      this.cargoRecoveryTargets.has(this.grabbedCargo)
+    ) {
+      return;
+    }
+
+    if (this.isBodyStuck(this.grabbedCargo, this.grabTarget)) {
+      this.beginCargoRecovery(this.grabbedCargo);
+    }
+  }
+
+  private updateTrainStuckDetection(): void {
+    if (!this.trainBody || this.trainRecoveryActive) {
+      return;
+    }
+
+    if (this.trainPhase === "moving" || this.trainPhase === "returning") {
+      const anchor =
+        this.trainPhase === "returning" ? this.getTrainStartingPoint() : this.getTrainArrivalPoint();
+      const trainBodies = this.getTrainBodies();
+      for (const [index, trainBody] of trainBodies.entries()) {
+        const target = index === 0 ? anchor : this.getTrainCarriagePosition(anchor, index - 1);
+        if (this.isBodyStuck(trainBody, target)) {
+          this.beginTrainRecovery();
+          return;
+        }
+      }
+    }
+
+    if (
+      this.trainGrabbedBody &&
+      this.trainGrabPointerId !== undefined &&
+      this.trainPhase !== "quiet" &&
+      this.isBodyStuck(this.trainGrabbedBody, this.trainGrabTarget)
+    ) {
+      this.beginTrainRecovery();
+    }
+  }
+
+  private updateAirplaneStuckDetection(): void {
+    if (
+      !this.airplaneBody ||
+      !this.isAirplaneJourneyActive() ||
+      this.airplanePhase === "recovering" ||
+      this.airplaneRecoveryTarget
+    ) {
+      return;
+    }
+
+    const target =
+      this.airplanePhase === "taking-off"
+        ? this.getAirplaneTakeoffPoint()
+        : this.airplanePhase === "returning"
+          ? this.getAirplaneHangarPoint()
+          : this.airplaneFlightTarget;
+    if (this.isBodyStuck(this.airplaneBody, target)) {
+      this.beginAirplaneRecovery();
+    }
+  }
+
+  private resetTrainMotionWatches(anchor: { x: number; y: number }): void {
+    if (!this.trainBody) {
+      return;
+    }
+
+    this.resetMotionWatch(this.trainBody, anchor);
+    for (const [index, carriage] of this.trainCarriageBodies.entries()) {
+      this.resetMotionWatch(carriage, this.getTrainCarriagePosition(anchor, index));
+    }
+  }
+
+  private resetMotionWatch(
+    body: MatterJS.BodyType,
+    target: { x: number; y: number } = body.position,
+  ): void {
+    this.motionWatches.set(body, {
+      position: { x: body.position.x, y: body.position.y },
+      target: { x: target.x, y: target.y },
+      lowMotionSince: this.time.now,
+    });
+  }
+
+  private isBodyStuck(body: MatterJS.BodyType, target: { x: number; y: number }): boolean {
+    const now = this.time.now;
+    const previous = this.motionWatches.get(body);
+    const position = { x: body.position.x, y: body.position.y };
+    const targetPosition = { x: target.x, y: target.y };
+    const targetChanged =
+      previous !== undefined &&
+      Phaser.Math.Distance.Between(
+        previous.target.x,
+        previous.target.y,
+        targetPosition.x,
+        targetPosition.y,
+      ) > RECOVERY_TARGET_CHANGE_DISTANCE;
+    const movedDistance =
+      previous === undefined
+        ? Number.POSITIVE_INFINITY
+        : Phaser.Math.Distance.Between(
+            previous.position.x,
+            previous.position.y,
+            position.x,
+            position.y,
+          );
+    const lowMotionSince =
+      previous === undefined ||
+      targetChanged ||
+      movedDistance > RECOVERY_LOW_MOTION_DISTANCE
+        ? now
+        : previous.lowMotionSince;
+
+    this.motionWatches.set(body, {
+      position,
+      target: targetPosition,
+      lowMotionSince,
+    });
+
+    const lowMotionElapsed = this.clamp(now - lowMotionSince, 0, RECOVERY_STUCK_TIMEOUT_MS);
+    const targetDistance = Phaser.Math.Distance.Between(
+      position.x,
+      position.y,
+      targetPosition.x,
+      targetPosition.y,
+    );
+    return targetDistance > RECOVERY_TARGET_DISTANCE && lowMotionElapsed >= RECOVERY_STUCK_TIMEOUT_MS;
+  }
+
   private updateTruckSafety(): void {
     if (!this.truckBody) {
       return;
@@ -1668,11 +1861,7 @@ export class DepotTenangScene extends Phaser.Scene {
       position.y > this.getWorldHeight() + 80;
 
     if (isOutOfBounds && !this.truckRecoveryTarget) {
-      this.truckRecoveryTarget =
-        this.truckPhase === "returning" || this.truckPhase === "quiet"
-          ? this.getTruckStartingPoint()
-          : this.getTruckArrivalPoint();
-      this.onStateChange("recovering");
+      this.beginTruckRecovery();
     }
 
     if (!this.truckRecoveryTarget) {
@@ -1780,6 +1969,10 @@ export class DepotTenangScene extends Phaser.Scene {
     }
     for (const trainBody of this.getTrainBodies()) {
       this.trainRecoveryLastMovedAt.set(trainBody, this.time.now);
+      const target = this.trainRecoveryTargets.get(trainBody);
+      if (target) {
+        this.resetMotionWatch(trainBody, target);
+      }
     }
     this.trainRecoveryActive = true;
     this.onStateChange("train-recovering");
@@ -1880,8 +2073,10 @@ export class DepotTenangScene extends Phaser.Scene {
       this.grabPointerId = undefined;
     }
 
-    this.cargoRecoveryTargets.set(cargo, this.getSafeCargoPosition(this.cargoBodies.indexOf(cargo)));
+    const target = this.getSafeCargoPosition(this.cargoBodies.indexOf(cargo));
+    this.cargoRecoveryTargets.set(cargo, target);
     this.cargoRecoveryLastMovedAt.set(cargo, this.time.now);
+    this.resetMotionWatch(cargo, target);
     if (!this.cargoRecoveryActive) {
       this.cargoRecoveryActive = true;
       this.onStateChange("recovering");
