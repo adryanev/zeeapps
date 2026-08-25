@@ -5,8 +5,10 @@ import type { Plugin } from "vite";
 
 const SERVICE_WORKER_VERSION_TOKEN = "__DUNIA_ZEE_CACHE_VERSION__";
 const buildVersion = resolveBuildVersion(process.env.DUNIA_ZEE_BUILD_VERSION);
+const appBasePath = resolveAppBasePath(process.env.DUNIA_ZEE_BASE_PATH);
 
 export default defineConfig({
+  base: appBasePath,
   define: {
     __DUNIA_ZEE_BUILD_VERSION__: JSON.stringify(buildVersion),
   },
@@ -16,6 +18,15 @@ export default defineConfig({
   },
   plugins: [stampServiceWorkerVersion(buildVersion)],
 });
+
+export function resolveAppBasePath(rawBasePath: string | undefined): string {
+  const normalizedBasePath = rawBasePath?.trim() || "/";
+  if (!/^\/(?:[A-Za-z0-9._-]+\/)*$/.test(normalizedBasePath)) {
+    throw new Error("DUNIA_ZEE_BASE_PATH must start and end with a slash and contain URL-safe segments.");
+  }
+
+  return normalizedBasePath;
+}
 
 function resolveBuildVersion(rawBuildVersion: string | undefined): string {
   const normalizedBuildVersion = rawBuildVersion?.trim() ?? "";

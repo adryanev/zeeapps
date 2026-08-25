@@ -17,6 +17,7 @@ test.describe("Dunia Zee PWA", () => {
     expect(manifestResponse.ok()).toBeTruthy();
     const manifest = (await manifestResponse.json()) as {
       display?: string;
+      scope?: string;
       start_url?: string;
       theme_color?: string;
       background_color?: string;
@@ -24,7 +25,8 @@ test.describe("Dunia Zee PWA", () => {
     };
 
     expect(manifest.display).toBe("standalone");
-    expect(manifest.start_url).toBe("/");
+    expect(manifest.start_url).toBe("./");
+    expect(manifest.scope).toBe("./");
     expect(manifest.theme_color).toBe("#f5ede1");
     expect(manifest.background_color).toBe("#f5ede1");
     expect(manifest.icons).toEqual(

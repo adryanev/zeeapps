@@ -4,13 +4,15 @@ const CACHE_VERSION = getCacheVersion();
 const CACHE_NAME = `${CACHE_PREFIX}v${CACHE_VERSION}`;
 const FETCH_TIMEOUT_MS = 10_000;
 const ERROR_HEADER = "X-Dunia-Zee-Error";
+const APP_SCOPE_URL = new URL(self.registration.scope);
+const APP_BASE_PATH = APP_SCOPE_URL.pathname;
 const SHELL_RESOURCES = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/icons/icon.svg",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
+  APP_BASE_PATH,
+  resolveAppPath("index.html"),
+  resolveAppPath("manifest.webmanifest"),
+  resolveAppPath("icons/icon.svg"),
+  resolveAppPath("icons/icon-192.svg"),
+  resolveAppPath("icons/icon-512.svg"),
 ];
 
 self.addEventListener("install", (event) => {
@@ -70,11 +72,11 @@ function getCacheVersion() {
 }
 
 async function cacheShellResources(cache) {
-  const shellResponse = await fetchWithTimeout("/", { cache: "no-store" });
+  const shellResponse = await fetchWithTimeout(APP_BASE_PATH, { cache: "no-store" });
   if (shellResponse.ok) {
     const shellBody = await shellResponse.clone().text();
-    await cache.put("/", shellResponse.clone());
-    await cache.put("/index.html", shellResponse.clone());
+    await cache.put(APP_BASE_PATH, shellResponse.clone());
+    await cache.put(resolveAppPath("index.html"), shellResponse.clone());
 
     const documentResources = extractDocumentResources(shellBody);
     await Promise.all(
@@ -93,8 +95,11 @@ function extractDocumentResources(documentBody) {
   let match = resourcePattern.exec(documentBody);
 
   while (match) {
-    const resourceUrl = new URL(match[1], self.location.origin);
-    if (resourceUrl.origin === self.location.origin) {
+    const resourceUrl = new URL(match[1], APP_SCOPE_URL);
+    if (
+      resourceUrl.origin === self.location.origin &&
+      resourceUrl.pathname.startsWith(APP_BASE_PATH)
+    ) {
       resources.push(`${resourceUrl.pathname}${resourceUrl.search}`);
     }
     match = resourcePattern.exec(documentBody);
@@ -138,13 +143,17 @@ async function networkFirstDocument(request) {
     try {
       return (
         (await cache.match(request, { ignoreVary: true })) ??
-        (await cache.match("/index.html", { ignoreVary: true })) ??
+        (await cache.match(resolveAppPath("index.html"), { ignoreVary: true })) ??
         createFailureResponse("document", error)
       );
     } catch (cacheError) {
       return createFailureResponse("cache", cacheError);
     }
   }
+}
+
+function resolveAppPath(relativePath) {
+  return new URL(relativePath, APP_SCOPE_URL).pathname;
 }
 
 async function cacheFirstResource(request) {

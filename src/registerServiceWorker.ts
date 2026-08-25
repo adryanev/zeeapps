@@ -13,9 +13,12 @@ export async function registerServiceWorker(): Promise<ServiceWorkerStatus> {
   }
 
   try {
+    const appBaseUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+    const serviceWorkerUrl = new URL("service-worker.js", appBaseUrl);
+    serviceWorkerUrl.searchParams.set("v", SERVICE_WORKER_VERSION);
     const registration = await withTimeout(
-      navigator.serviceWorker.register(`/service-worker.js?v=${SERVICE_WORKER_VERSION}`, {
-        scope: "/",
+      navigator.serviceWorker.register(serviceWorkerUrl.toString(), {
+        scope: appBaseUrl.pathname,
       }),
       SERVICE_WORKER_READY_TIMEOUT_MS,
       "Service-worker registration timed out.",
