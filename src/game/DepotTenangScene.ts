@@ -18,6 +18,7 @@ type DepotTenangCallbacks = {
   onStateChange: (state: DepotTenangState) => void;
   onFeedback?: (feedback: DepotTenangFeedback) => void;
   onActionAccepted?: () => void;
+  reducedMotion?: boolean;
 };
 
 const WORLD_WIDTH = 960;
@@ -57,6 +58,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private readonly onStateChange: (state: DepotTenangState) => void;
   private readonly onFeedback?: (feedback: DepotTenangFeedback) => void;
   private readonly onActionAccepted?: () => void;
+  private readonly reducedMotion: boolean;
   private diorama?: Phaser.GameObjects.Graphics;
   private depotLabels: Phaser.GameObjects.Text[] = [];
   private truckVisual?: Phaser.GameObjects.Container;
@@ -80,6 +82,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.onStateChange = callbacks.onStateChange;
     this.onFeedback = callbacks.onFeedback;
     this.onActionAccepted = callbacks.onActionAccepted;
+    this.reducedMotion = callbacks.reducedMotion ?? false;
   }
 
   public create(): void {
@@ -111,7 +114,7 @@ export class DepotTenangScene extends Phaser.Scene {
     this.updateTruckJourneyMovement();
 
     this.truckVisual.setPosition(this.truckBody.position.x, this.truckBody.position.y);
-    this.truckVisual.setRotation(this.truckBody.angle * 0.2);
+    this.truckVisual.setRotation(this.truckBody.angle * (this.reducedMotion ? 0.08 : 0.2));
 
     if (this.truckPhase === "moving" && this.truckBody.position.x >= this.getTruckArrivalPoint().x) {
       this.settleTruckAtArrival();
@@ -381,9 +384,18 @@ export class DepotTenangScene extends Phaser.Scene {
 
     const releasedCargo = this.grabbedCargo;
     const elapsed = Math.max(this.time.now - this.grabStartedAt, 1);
+    const impulseScale = this.getPhysicsImpulseScale();
     const swipeVelocity = {
-      x: this.clamp((pointer.x - this.grabStart.x) / elapsed * 8, -CARGO_MAX_SPEED, CARGO_MAX_SPEED),
-      y: this.clamp((pointer.y - this.grabStart.y) / elapsed * 8, -CARGO_MAX_SPEED, CARGO_MAX_SPEED),
+      x: this.clamp(
+        (pointer.x - this.grabStart.x) / elapsed * 8 * impulseScale,
+        -CARGO_MAX_SPEED,
+        CARGO_MAX_SPEED,
+      ),
+      y: this.clamp(
+        (pointer.y - this.grabStart.y) / elapsed * 8 * impulseScale,
+        -CARGO_MAX_SPEED,
+        CARGO_MAX_SPEED,
+      ),
     };
     this.matter.body.setVelocity(releasedCargo, swipeVelocity);
     this.matter.body.setAngularVelocity(releasedCargo, 0);
@@ -497,13 +509,26 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    const xVelocity = this.clamp((this.grabTarget.x - this.grabbedCargo.position.x) * 0.16, -CARGO_MAX_SPEED, CARGO_MAX_SPEED);
-    const yVelocity = this.clamp((this.grabTarget.y - this.grabbedCargo.position.y) * 0.16, -CARGO_MAX_SPEED, CARGO_MAX_SPEED);
+    const impulseScale = this.getPhysicsImpulseScale();
+    const xVelocity = this.clamp(
+      (this.grabTarget.x - this.grabbedCargo.position.x) * 0.16 * impulseScale,
+      -CARGO_MAX_SPEED,
+      CARGO_MAX_SPEED,
+    );
+    const yVelocity = this.clamp(
+      (this.grabTarget.y - this.grabbedCargo.position.y) * 0.16 * impulseScale,
+      -CARGO_MAX_SPEED,
+      CARGO_MAX_SPEED,
+    );
     this.wakeBody(this.grabbedCargo);
     this.matter.body.setVelocity(this.grabbedCargo, { x: xVelocity, y: yVelocity });
     this.matter.body.setAngularVelocity(
       this.grabbedCargo,
-      this.clamp(-this.grabbedCargo.angle * 0.12, -CARGO_MAX_ANGULAR_SPEED, CARGO_MAX_ANGULAR_SPEED),
+      this.clamp(
+        -this.grabbedCargo.angle * 0.12 * impulseScale,
+        -CARGO_MAX_ANGULAR_SPEED,
+        CARGO_MAX_ANGULAR_SPEED,
+      ),
     );
   }
 
@@ -722,6 +747,10 @@ export class DepotTenangScene extends Phaser.Scene {
 
   private clamp(value: number, minimum: number, maximum: number): number {
     return Math.min(Math.max(value, minimum), maximum);
+  }
+
+  private getPhysicsImpulseScale(): number {
+    return this.reducedMotion ? 0.55 : 1;
   }
 
   private wakeBody(body: MatterJS.BodyType): void {

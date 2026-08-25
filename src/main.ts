@@ -1,6 +1,14 @@
 import Phaser from "phaser";
 import "./styles.css";
 import {
+  isSoundProfile,
+  loadCompanionSettings,
+  saveCompanionSettings,
+  type CompanionSettings,
+  type SoundProfile,
+} from "./companionSettings";
+import { installCompanionGate } from "./companionGate";
+import {
   DepotTenangScene,
   type DepotTenangFeedback,
   type DepotTenangState,
@@ -33,6 +41,28 @@ app.innerHTML = `
           <p class="companion-prompt" data-testid="companion-prompt">
             Companion: tunjuk kendaraan yang datang, lalu tirukan suaranya bersama Explorer.
           </p>
+          <section class="companion-settings" data-testid="companion-settings" aria-labelledby="settings-title">
+            <h3 id="settings-title">Companion settings</h3>
+            <fieldset>
+              <legend>Sound Profile</legend>
+              <label>
+                <input type="radio" name="sound-profile" value="lembut" />
+                Lembut
+              </label>
+              <label>
+                <input type="radio" name="sound-profile" value="normal" />
+                Normal
+              </label>
+              <label>
+                <input type="radio" name="sound-profile" value="senyap" />
+                Senyap
+              </label>
+            </fieldset>
+            <label class="reduced-motion-option">
+              <input type="checkbox" data-testid="reduced-motion-toggle" />
+              Reduced Motion
+            </label>
+          </section>
           <button class="primary-button" data-testid="depot-tenang-card" type="button">
             Mulai Depot Tenang
           </button>
@@ -58,6 +88,26 @@ app.innerHTML = `
         role="application"
         aria-label="Child Stage Depot Tenang. Tekan tombol atau ketuk untuk melihat truk berjalan."
       ></div>
+      <div class="companion-gate-touch companion-gate-touch--left" data-testid="companion-gate-touch-left" aria-hidden="true"></div>
+      <div class="companion-gate-touch companion-gate-touch--right" data-testid="companion-gate-touch-right" aria-hidden="true"></div>
+      <section
+        class="companion-gate"
+        data-testid="companion-gate"
+        aria-labelledby="companion-gate-title"
+        aria-modal="true"
+        role="dialog"
+        hidden
+      >
+        <div class="companion-gate__card">
+          <p class="eyebrow">Companion Gate</p>
+          <h2 id="companion-gate-title">Playroom?</h2>
+          <p>Companion, pilih apakah ingin melanjutkan atau kembali ke Playroom.</p>
+          <div class="companion-gate__actions">
+            <button class="primary-button" data-testid="companion-gate-continue" type="button">Continue</button>
+            <button class="secondary-button" data-testid="companion-gate-return" type="button">Return to Playroom</button>
+          </div>
+        </div>
+      </section>
     </section>
   </main>
 `;
@@ -68,17 +118,62 @@ const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-t
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
 const gameStatus = getRequiredElement<HTMLElement>("[data-testid='game-status']");
 const activeVehicle = getRequiredElement<HTMLElement>("[data-testid='active-vehicle']");
+const soundProfileInputs = getRequiredElements<HTMLInputElement>("input[name='sound-profile']");
+const reducedMotionInput = getRequiredElement<HTMLInputElement>("[data-testid='reduced-motion-toggle']");
+const companionGate = getRequiredElement<HTMLElement>("[data-testid='companion-gate']");
+const companionGateContinue = getRequiredElement<HTMLButtonElement>("[data-testid='companion-gate-continue']");
+const companionGateReturn = getRequiredElement<HTMLButtonElement>("[data-testid='companion-gate-return']");
+const companionGateTouchLeft = getRequiredElement<HTMLElement>("[data-testid='companion-gate-touch-left']");
+const companionGateTouchRight = getRequiredElement<HTMLElement>("[data-testid='companion-gate-touch-right']");
+
+let companionSettings = loadCompanionSettings();
+applySettingsToPanel(companionSettings);
+
+for (const input of soundProfileInputs) {
+  input.addEventListener("change", () => {
+    if (!input.checked || !isSoundProfile(input.value)) {
+      return;
+    }
+
+    companionSettings = {
+      ...companionSettings,
+      soundProfile: input.value,
+    };
+    saveCompanionSettings(companionSettings);
+  });
+}
+
+reducedMotionInput.addEventListener("change", () => {
+  companionSettings = {
+    ...companionSettings,
+    reducedMotion: reducedMotionInput.checked,
+  };
+  saveCompanionSettings(companionSettings);
+});
 
 let game: Phaser.Game | undefined;
 let audioContext: AudioContext | undefined;
+let audioOutput: GainNode | undefined;
 let nextActionSoundAt = 0;
+
+installCompanionGate({
+  keyboardTarget: window,
+  leftTouchCorner: companionGateTouchLeft,
+  rightTouchCorner: companionGateTouchRight,
+  onOpen: openCompanionGate,
+});
+
+companionGateContinue.addEventListener("click", closeCompanionGate);
+companionGateReturn.addEventListener("click", returnToPlayroom);
 
 startButton.addEventListener("click", () => {
   if (game) {
     return;
   }
 
-  activateAudio();
+  activateAudio(companionSettings.soundProfile);
+  childStage.dataset.soundProfile = companionSettings.soundProfile;
+  childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
   startButton.disabled = true;
   playroom.hidden = true;
   childStage.hidden = false;
@@ -109,6 +204,7 @@ startButton.addEventListener("click", () => {
       onStateChange: updateStageState,
       onFeedback: updateStageFeedback,
       onActionAccepted: playActionSound,
+      reducedMotion: companionSettings.reducedMotion,
     }),
   });
 });
@@ -137,7 +233,7 @@ function updateStageFeedback(feedback: DepotTenangFeedback): void {
   gameStatus.textContent = labels[feedback];
 }
 
-function activateAudio(): void {
+function activateAudio(soundProfile: SoundProfile): void {
   const windowWithWebkitAudio = window as Window & {
     webkitAudioContext?: typeof AudioContext;
   };
@@ -148,11 +244,15 @@ function activateAudio(): void {
   }
 
   audioContext = new AudioContextConstructor();
+  audioOutput = audioContext.createGain();
+  audioOutput.gain.value = getSoundProfileVolume(soundProfile);
+  audioOutput.connect(audioContext.destination);
   void audioContext.resume();
 }
 
 function playActionSound(): void {
-  if (!audioContext || audioContext.state === "closed") {
+  const output = audioOutput;
+  if (!audioContext || !output || audioContext.state === "closed") {
     return;
   }
 
@@ -170,10 +270,49 @@ function playActionSound(): void {
   gain.gain.exponentialRampToValueAtTime(0.045, now + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
   oscillator.connect(gain);
-  gain.connect(audioContext.destination);
+  gain.connect(output);
   oscillator.start(now);
   oscillator.stop(now + 0.1);
   nextActionSoundAt = now + 0.1;
+}
+
+function openCompanionGate(): void {
+  if (childStage.hidden) {
+    return;
+  }
+
+  companionGate.hidden = false;
+  companionGateContinue.focus();
+}
+
+function closeCompanionGate(): void {
+  companionGate.hidden = true;
+}
+
+function returnToPlayroom(): void {
+  closeCompanionGate();
+  game?.destroy(true);
+  game = undefined;
+  childStage.hidden = true;
+  playroom.hidden = false;
+  startButton.disabled = false;
+  gameStatus.textContent = "Depot sedang dibuka";
+  activeVehicle.textContent = "Belum ada kendaraan aktif";
+}
+
+function applySettingsToPanel(settings: CompanionSettings): void {
+  for (const input of soundProfileInputs) {
+    input.checked = input.value === settings.soundProfile;
+  }
+  reducedMotionInput.checked = settings.reducedMotion;
+}
+
+function getSoundProfileVolume(soundProfile: SoundProfile): number {
+  if (soundProfile === "senyap") {
+    return 0;
+  }
+
+  return soundProfile === "normal" ? 0.8 : 0.45;
 }
 
 function getRequiredElement<ElementType extends Element>(selector: string): ElementType {
@@ -184,4 +323,14 @@ function getRequiredElement<ElementType extends Element>(selector: string): Elem
   }
 
   return element;
+}
+
+function getRequiredElements<ElementType extends Element>(selector: string): ElementType[] {
+  const elements = Array.from(document.querySelectorAll<ElementType>(selector));
+
+  if (elements.length === 0) {
+    throw new Error(`Dunia Zee is missing ${selector}.`);
+  }
+
+  return elements;
 }
