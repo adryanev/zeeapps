@@ -49,6 +49,11 @@ export async function createDepotTenangGame(
         gravity: { x: 0, y: 0.9 },
         enableSleeping: true,
         debug: false,
+        runner: {
+          frameDeltaSmoothing: false,
+          maxFrameTime: 100,
+          maxUpdates: 6,
+        },
       },
     },
     scale: {

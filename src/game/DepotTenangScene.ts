@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { DepotTenangFeedback, DepotTenangState } from "./depotTenangTypes";
+import { stepGuidedMotion, type GuidedMotionProfile } from "./guidedPhysics";
 
 export type { DepotTenangFeedback, DepotTenangState } from "./depotTenangTypes";
 
@@ -30,14 +31,12 @@ const WORLD_HEIGHT = 540;
 const ROAD_Y = 394;
 const TRUCK_WIDTH = 138;
 const TRUCK_HEIGHT = 52;
-const TRUCK_SPEED = 3.6;
-const TRUCK_MAX_SPEED = 4.2;
+const TRUCK_MAX_SPEED = 6.4;
 const CARGO_WIDTH = 34;
 const CARGO_HEIGHT = 28;
 const CARGO_MAX_SPEED = 7;
 const CARGO_MAX_ANGULAR_SPEED = 0.14;
 const CARGO_GRAB_RADIUS = 68;
-const CARGO_RECOVERY_SPEED = 180;
 const TRUCK_ARRIVAL_RATIO = 0.42;
 const TRUCK_START_RATIO = 0.14;
 const TRAIN_ARRIVAL_RATIO = 0.53;
@@ -51,7 +50,6 @@ const TRAIN_SPEED = 5.2;
 const TRAIN_MAX_SPEED = 6.2;
 const TRAIN_MAX_ANGULAR_SPEED = 0.07;
 const TRAIN_GRAB_RADIUS = 72;
-const TRAIN_RECOVERY_SPEED = 160;
 const TRAIN_TRACK_MARGIN = 84;
 const AIRPLANE_WIDTH = 112;
 const AIRPLANE_HEIGHT = 42;
@@ -60,6 +58,74 @@ const AIRPLANE_FLIGHT_SPEED = 3.2;
 const AIRPLANE_MAX_SPEED = 5;
 const AIRPLANE_MAX_TILT = 0.32;
 const AIRPLANE_GRAB_RADIUS = 88;
+const AIRPLANE_GRAB_BOUNDS = {
+  // Expand the visual bounds and sweep them along the guided flight path.
+  halfWidth: AIRPLANE_WIDTH * 0.75,
+  halfHeight: AIRPLANE_HEIGHT * 1.8,
+} as const;
+const TRUCK_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.48,
+  arrivalDistance: 8,
+  deceleration: 0.46,
+  maxSpeed: TRUCK_MAX_SPEED,
+  settlingSpeed: 0.08,
+};
+const TRUCK_RETURN_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.5,
+  arrivalDistance: 8,
+  deceleration: 0.42,
+  maxSpeed: TRUCK_MAX_SPEED,
+  settlingSpeed: 0.08,
+};
+const TRAIN_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.32,
+  arrivalDistance: 8,
+  deceleration: 0.36,
+  maxSpeed: TRAIN_SPEED,
+  settlingSpeed: 0.08,
+};
+const AIRPLANE_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.24,
+  arrivalDistance: 8,
+  deceleration: 0.32,
+  maxSpeed: AIRPLANE_SPEED,
+  settlingSpeed: 0.08,
+};
+const SOFT_GRAB_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.3,
+  arrivalDistance: 5,
+  deceleration: 0.42,
+  maxSpeed: CARGO_MAX_SPEED,
+  settlingSpeed: 0.08,
+};
+const CARGO_LOAD_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.32,
+  arrivalDistance: 5,
+  deceleration: 0.38,
+  maxSpeed: CARGO_MAX_SPEED,
+  settlingSpeed: 0.08,
+};
+const TRAIN_RECOVERY_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.2,
+  arrivalDistance: 8,
+  deceleration: 0.28,
+  maxSpeed: 2.8,
+  settlingSpeed: 0.08,
+};
+const TRUCK_RECOVERY_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.18,
+  arrivalDistance: 8,
+  deceleration: 0.24,
+  maxSpeed: 2.4,
+  settlingSpeed: 0.08,
+};
+const CARGO_RECOVERY_GUIDED_PROFILE: GuidedMotionProfile = {
+  acceleration: 0.22,
+  arrivalDistance: 8,
+  deceleration: 0.3,
+  maxSpeed: 2.6,
+  settlingSpeed: 0.08,
+};
 /**
  * Each vehicle offers three calm activity beats: one for each cargo piece,
  * train body, or flight waypoint. Nine explorer-led beats at an unhurried
@@ -140,28 +206,26 @@ export class DepotTenangScene extends Phaser.Scene {
   private cargoBodies: MatterJS.BodyType[] = [];
   private cargoVisuals = new Map<MatterJS.BodyType, Phaser.GameObjects.Rectangle>();
   private cargoRecoveryTargets = new Map<MatterJS.BodyType, { x: number; y: number }>();
-  private cargoRecoveryLastMovedAt = new Map<MatterJS.BodyType, number>();
   private truckPhase: DepotTenangState = "ready";
   private trainPhase: TrainPhase = "ready";
   private activeVehicle: ActiveVehicle = "none";
   private grabbedCargo?: MatterJS.BodyType;
   private grabPointerId?: number;
   private grabTarget = { x: 0, y: 0 };
+  private grabOffset = { x: 0, y: 0 };
   private grabStart = { x: 0, y: 0 };
   private grabStartedAt = 0;
   private activeTouchId?: number;
   private truckRecoveryTarget?: { x: number; y: number };
   private cargoRecoveryActive = false;
-  private lastTruckMovementAt = 0;
   private trainGrabbedBody?: MatterJS.BodyType;
   private trainGrabPointerId?: number;
   private trainGrabTarget = { x: 0, y: 0 };
+  private trainGrabOffset = { x: 0, y: 0 };
   private trainGrabStart = { x: 0, y: 0 };
   private trainGrabStartedAt = 0;
   private trainRecoveryTargets = new Map<MatterJS.BodyType, { x: number; y: number }>();
-  private trainRecoveryLastMovedAt = new Map<MatterJS.BodyType, number>();
   private trainRecoveryActive = false;
-  private lastTrainMovementAt = 0;
   private airplaneVisual?: Phaser.GameObjects.Container;
   private airplaneBody?: MatterJS.BodyType;
   private airplanePhase: AirplanePhase = "ready";
@@ -175,7 +239,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private airplaneRecoveryResumePhase: AirplanePhase = "flying";
   private airplanePointerId?: number;
   private airplaneGrabTarget = { x: 0, y: 0 };
-  private lastAirplaneMovementAt = 0;
+  private airplaneGrabOffset = { x: 0, y: 0 };
   private airplaneCorridorFeedbackShown = false;
   private completedJourneys = 0;
   private playCycleQuietEntered = false;
@@ -211,22 +275,23 @@ export class DepotTenangScene extends Phaser.Scene {
     this.onStateChange("ready");
   }
 
-  public update(): void {
+  public update(_time?: number, delta = 16.67): void {
     if (!this.truckBody || !this.truckVisual) {
       return;
     }
 
-    this.updateTruckSafety();
-    this.updateCargoSafety();
-    this.updateGrabbedCargo();
-    this.updateTruckJourneyMovement();
-    this.updateTrainSafety();
-    this.updateGrabbedTrain();
+    const deltaMs = this.clamp(delta || 16.67, 0, 120);
+    this.updateTruckSafety(deltaMs);
+    this.updateCargoSafety(deltaMs);
+    this.updateGrabbedCargo(deltaMs);
+    const truckReachedDestination = this.updateTruckJourneyMovement(deltaMs);
+    this.updateTrainSafety(deltaMs);
+    this.updateGrabbedTrain(deltaMs);
     this.updateTrainConstraintFeedback();
-    this.updateTrainJourneyMovement();
-    this.updateAirplaneSafety();
+    const trainReachedDestination = this.updateTrainJourneyMovement(deltaMs);
+    this.updateAirplaneSafety(deltaMs);
     this.updateAirplaneGrabbed();
-    this.updateAirplaneJourneyMovement();
+    this.updateAirplaneJourneyMovement(deltaMs);
     this.updateAirplaneCorridorFeedback();
     this.updateTruckStuckDetection();
     this.updateCargoStuckDetection();
@@ -239,87 +304,84 @@ export class DepotTenangScene extends Phaser.Scene {
     this.updateTrainVisuals();
     this.updateAirplaneVisual();
 
-    if (this.truckPhase === "moving" && this.truckBody.position.x >= this.getTruckArrivalPoint().x) {
+    if (this.truckPhase === "moving" && truckReachedDestination) {
       this.settleTruckAtArrival();
     }
 
-    if (this.truckPhase === "returning" && this.truckBody.position.x <= this.getTruckStartingPoint().x) {
+    if (this.truckPhase === "returning" && truckReachedDestination) {
       this.settleTruckAtGarage();
     }
 
-    if (
-      this.trainBody &&
-      this.trainPhase === "moving" &&
-      this.trainBody.position.x <= this.getTrainArrivalPoint().x
-    ) {
+    if (this.trainPhase === "moving" && trainReachedDestination) {
       this.settleTrainAtStation();
     }
 
-    if (
-      this.trainBody &&
-      this.trainPhase === "returning" &&
-      this.trainBody.position.x >= this.getTrainStartingPoint().x
-    ) {
+    if (this.trainPhase === "returning" && trainReachedDestination) {
       this.settleTrainAtDepot();
     }
 
     if (this.truckPhase === "returning" || this.truckPhase === "quiet") {
-      this.syncLoadedCargo();
+      this.syncLoadedCargo(deltaMs);
     }
 
     this.updateCargoVisuals();
   }
 
-  private updateTruckJourneyMovement(): void {
+  private updateTruckJourneyMovement(deltaMs: number): boolean {
     if (
       !this.truckBody ||
       this.activeVehicle !== "truck" ||
+      this.truckRecoveryTarget ||
       (this.truckPhase !== "moving" && this.truckPhase !== "returning")
     ) {
-      return;
+      return false;
     }
 
-    const destination = this.truckPhase === "moving" ? this.getTruckArrivalPoint() : this.getTruckStartingPoint();
-    const direction = this.truckPhase === "moving" ? 1 : -1;
-    const now = this.time.now;
-    const elapsed = this.lastTruckMovementAt === 0 ? 16.67 : this.clamp(now - this.lastTruckMovementAt, 0, 120);
-    this.lastTruckMovementAt = now;
-    const nextX = this.truckBody.position.x + direction * TRUCK_SPEED * (elapsed / 16.67);
-    const hasReachedDestination = direction > 0 ? nextX >= destination.x : nextX <= destination.x;
+    const destination =
+      this.truckPhase === "moving" ? this.getTruckArrivalPoint() : this.getTruckStartingPoint();
+    const profile = this.truckPhase === "moving" ? TRUCK_GUIDED_PROFILE : TRUCK_RETURN_GUIDED_PROFILE;
+    const step = stepGuidedMotion(
+      {
+        position: this.truckBody.position,
+        velocity: this.truckBody.velocity,
+      },
+      destination,
+      profile,
+      deltaMs,
+    );
     this.wakeBody(this.truckBody);
-    this.matter.body.setPosition(this.truckBody, {
-      x: hasReachedDestination ? destination.x : nextX,
-      y: destination.y,
-    });
-    this.matter.body.setVelocity(this.truckBody, { x: 0, y: 0 });
-    this.matter.body.setAngularVelocity(this.truckBody, 0);
+    this.matter.body.setVelocity(this.truckBody, step.velocity);
+    this.dampenAngularVelocity(this.truckBody, 0.04);
+    return step.arrived;
   }
 
-  private updateTrainJourneyMovement(): void {
+  private updateTrainJourneyMovement(deltaMs: number): boolean {
     if (
       !this.trainBody ||
       this.activeVehicle !== "train" ||
       this.trainRecoveryActive ||
       (this.trainPhase !== "moving" && this.trainPhase !== "returning")
     ) {
-      return;
+      return false;
     }
 
     const destination =
       this.trainPhase === "moving" ? this.getTrainArrivalPoint() : this.getTrainStartingPoint();
-    const direction = this.trainPhase === "moving" ? -1 : 1;
-    const now = this.time.now;
-    const elapsed = this.lastTrainMovementAt === 0 ? 16.67 : this.clamp(now - this.lastTrainMovementAt, 0, 120);
-    this.lastTrainMovementAt = now;
-    const nextX = this.trainBody.position.x + direction * TRAIN_SPEED * (elapsed / 16.67);
-    const hasReachedDestination = direction < 0 ? nextX <= destination.x : nextX >= destination.x;
+    const step = stepGuidedMotion(
+      {
+        position: this.trainBody.position,
+        velocity: this.trainBody.velocity,
+      },
+      destination,
+      TRAIN_GUIDED_PROFILE,
+      deltaMs,
+    );
     this.wakeTrainBodies();
-    this.matter.body.setPosition(this.trainBody, {
-      x: hasReachedDestination ? destination.x : nextX,
-      y: this.getTrainRailY(),
-    });
-    this.matter.body.setVelocity(this.trainBody, { x: 0, y: 0 });
-    this.matter.body.setAngularVelocity(this.trainBody, 0);
+    for (const trainBody of this.getTrainBodies()) {
+      this.matter.body.setVelocity(trainBody, step.velocity);
+      this.dampenAngularVelocity(trainBody, TRAIN_MAX_ANGULAR_SPEED);
+    }
+    return step.arrived;
   }
 
   private createMatterBounds(): void {
@@ -380,9 +442,10 @@ export class DepotTenangScene extends Phaser.Scene {
     this.truckBody = this.matter.add.rectangle(startingPoint.x, startingPoint.y, TRUCK_WIDTH, TRUCK_HEIGHT, {
       chamfer: { radius: 8 },
       density: 0.001,
-      friction: 0.9,
-      frictionAir: 0.18,
+      friction: 0,
+      frictionAir: 0.03,
       restitution: 0.05,
+      ignoreGravity: true,
       label: "active-truck",
     });
 
@@ -416,9 +479,11 @@ export class DepotTenangScene extends Phaser.Scene {
       {
         chamfer: { radius: 8 },
         density: 0.001,
-        friction: 0.82,
-        frictionAir: 0.12,
+        friction: 0,
+        frictionAir: 0.03,
         restitution: 0.02,
+        ignoreGravity: true,
+        collisionFilter: { group: -2 },
         label: "active-train",
       },
     );
@@ -452,9 +517,11 @@ export class DepotTenangScene extends Phaser.Scene {
         {
           chamfer: { radius: 7 },
           density: 0.0008,
-          friction: 0.82,
-          frictionAir: 0.13,
+          friction: 0,
+          frictionAir: 0.03,
           restitution: 0.02,
+          ignoreGravity: true,
+          collisionFilter: { group: -2 },
           label: `train-carriage-${index + 1}`,
         },
       );
@@ -493,9 +560,11 @@ export class DepotTenangScene extends Phaser.Scene {
       {
         chamfer: { radius: 12 },
         density: 0.001,
-        friction: 0.4,
-        frictionAir: 0.3,
+        friction: 0,
+        frictionAir: 0.05,
         restitution: 0,
+        ignoreGravity: true,
+        collisionFilter: { mask: 0 },
         label: "active-airplane",
       },
     );
@@ -557,7 +626,7 @@ export class DepotTenangScene extends Phaser.Scene {
       const body = this.matter.add.rectangle(definition.x, definition.y, CARGO_WIDTH, CARGO_HEIGHT, {
         chamfer: { radius: 5 },
         density: 0.001,
-        friction: 0.85,
+        friction: 0.2,
         frictionAir: 0.08,
         restitution: 0.05,
         label: `truck-cargo-${index + 1}`,
@@ -824,22 +893,22 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (this.grabbedCargo && this.grabPointerId === pointer.id) {
-      this.grabTarget.x = pointer.x;
-      this.grabTarget.y = pointer.y;
+      this.grabTarget.x = pointer.x - this.grabOffset.x;
+      this.grabTarget.y = pointer.y - this.grabOffset.y;
       this.resetMotionWatch(this.grabbedCargo, this.grabTarget);
       return;
     }
 
     if (this.trainGrabbedBody && this.trainGrabPointerId === pointer.id) {
-      this.trainGrabTarget.x = pointer.x;
-      this.trainGrabTarget.y = pointer.y;
+      this.trainGrabTarget.x = pointer.x - this.trainGrabOffset.x;
+      this.trainGrabTarget.y = pointer.y - this.trainGrabOffset.y;
       this.resetMotionWatch(this.trainGrabbedBody, this.trainGrabTarget);
       return;
     }
 
     if (this.airplanePointerId === pointer.id) {
-      this.airplaneGrabTarget.x = pointer.x;
-      this.airplaneGrabTarget.y = pointer.y;
+      this.airplaneGrabTarget.x = pointer.x - this.airplaneGrabOffset.x;
+      this.airplaneGrabTarget.y = pointer.y - this.airplaneGrabOffset.y;
       if (this.airplaneBody) {
         this.resetMotionWatch(this.airplaneBody, this.airplaneGrabTarget);
       }
@@ -1041,7 +1110,6 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    const restingPoint = this.getAirplaneHangarPoint();
     const takeoffPoint = this.getAirplaneTakeoffPoint();
     this.activeVehicle = "airplane";
     this.airplanePhase = "taking-off";
@@ -1049,8 +1117,6 @@ export class DepotTenangScene extends Phaser.Scene {
     this.resetActivityBeats("airplane");
     this.airplaneFlightTarget = takeoffPoint;
     this.airplaneRecoveryTarget = undefined;
-    this.lastAirplaneMovementAt = this.time.now;
-    this.matter.body.setPosition(this.airplaneBody, restingPoint);
     this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
     this.matter.body.setAngle(this.airplaneBody, 0);
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
@@ -1118,9 +1184,8 @@ export class DepotTenangScene extends Phaser.Scene {
 
     this.airplanePhase = "returning";
     this.airplaneFlightTarget = this.getAirplaneHangarPoint();
-    this.lastAirplaneMovementAt = this.time.now;
     this.wakeBody(this.airplaneBody);
-    this.matter.body.setVelocity(this.airplaneBody, { x: -AIRPLANE_SPEED, y: 0 });
+    this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
     this.resetMotionWatch(this.airplaneBody, this.getAirplaneHangarPoint());
     this.onActionAccepted?.();
@@ -1145,13 +1210,17 @@ export class DepotTenangScene extends Phaser.Scene {
     this.onStateChange("airplane-quiet");
   }
 
-  private updateAirplaneJourneyMovement(): void {
+  private updateAirplaneJourneyMovement(deltaMs: number): void {
     if (!this.airplaneBody) {
       return;
     }
 
     if (this.airplaneRecoveryTarget) {
-      const reachedRecoveryTarget = this.moveAirplaneTowards(this.airplaneRecoveryTarget, AIRPLANE_FLIGHT_SPEED);
+      const reachedRecoveryTarget = this.moveAirplaneTowards(
+        this.airplaneRecoveryTarget,
+        AIRPLANE_SPEED,
+        deltaMs,
+      );
       if (!reachedRecoveryTarget) {
         return;
       }
@@ -1165,7 +1234,7 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (this.airplanePhase === "taking-off") {
-      if (this.moveAirplaneTowards(this.getAirplaneTakeoffPoint(), AIRPLANE_SPEED)) {
+      if (this.moveAirplaneTowards(this.getAirplaneTakeoffPoint(), AIRPLANE_SPEED, deltaMs)) {
         this.airplanePhase = "flying";
         this.airplaneFlightTarget = this.getAirplaneFlightCenter();
         this.onStateChange("airplane-flying");
@@ -1174,47 +1243,44 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (this.airplanePhase === "flying") {
-      this.moveAirplaneTowards(this.airplaneFlightTarget, AIRPLANE_FLIGHT_SPEED);
+      this.moveAirplaneTowards(this.airplaneFlightTarget, AIRPLANE_FLIGHT_SPEED, deltaMs);
       return;
     }
 
-    if (this.airplanePhase === "returning" && this.moveAirplaneTowards(this.getAirplaneHangarPoint(), AIRPLANE_SPEED)) {
+    if (
+      this.airplanePhase === "returning" &&
+      this.moveAirplaneTowards(this.getAirplaneHangarPoint(), AIRPLANE_SPEED, deltaMs)
+    ) {
       this.settleAirplaneAtHangar();
     }
   }
 
-  private moveAirplaneTowards(destination: { x: number; y: number }, speed: number): boolean {
+  private moveAirplaneTowards(
+    destination: { x: number; y: number },
+    speed: number,
+    deltaMs: number,
+  ): boolean {
     if (!this.airplaneBody) {
       return false;
     }
 
-    const position = this.airplaneBody.position;
-    const distance = Phaser.Math.Distance.Between(position.x, position.y, destination.x, destination.y);
-    if (distance <= 8) {
-      this.matter.body.setPosition(this.airplaneBody, destination);
-      this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
-      this.matter.body.setAngle(this.airplaneBody, 0);
-      this.matter.body.setAngularVelocity(this.airplaneBody, 0);
-      this.lastAirplaneMovementAt = this.time.now;
-      return true;
-    }
-
-    const now = this.time.now;
-    const elapsed = this.lastAirplaneMovementAt === 0 ? 16.67 : this.clamp(now - this.lastAirplaneMovementAt, 0, 120);
-    this.lastAirplaneMovementAt = now;
-    const step = Math.min(speed * (elapsed / 16.67), distance);
-    const progress = step / distance;
-    this.matter.body.setPosition(this.airplaneBody, {
-      x: position.x + (destination.x - position.x) * progress,
-      y: position.y + (destination.y - position.y) * progress,
-    });
-    this.matter.body.setVelocity(this.airplaneBody, { x: 0, y: 0 });
-    this.matter.body.setAngle(
-      this.airplaneBody,
-      this.clamp((destination.y - position.y) * 0.004, -AIRPLANE_MAX_TILT, AIRPLANE_MAX_TILT),
+    const profile = {
+      ...AIRPLANE_GUIDED_PROFILE,
+      maxSpeed: speed,
+    };
+    const step = stepGuidedMotion(
+      {
+        position: this.airplaneBody.position,
+        velocity: this.airplaneBody.velocity,
+      },
+      destination,
+      profile,
+      deltaMs,
     );
-    this.matter.body.setAngularVelocity(this.airplaneBody, 0);
-    return false;
+    this.wakeBody(this.airplaneBody);
+    this.matter.body.setVelocity(this.airplaneBody, step.velocity);
+    this.dampenAngularVelocity(this.airplaneBody, 0.04);
+    return step.arrived;
   }
 
   private updateAirplaneCorridorFeedback(): void {
@@ -1260,20 +1326,13 @@ export class DepotTenangScene extends Phaser.Scene {
     }
   }
 
-  private updateAirplaneSafety(): void {
+  private updateAirplaneSafety(_deltaMs: number): void {
     if (!this.airplaneBody) {
       return;
     }
 
-    const velocity = this.airplaneBody.velocity;
-    this.matter.body.setVelocity(this.airplaneBody, {
-      x: this.clamp(velocity.x, -AIRPLANE_MAX_SPEED, AIRPLANE_MAX_SPEED),
-      y: this.clamp(velocity.y, -AIRPLANE_MAX_SPEED, AIRPLANE_MAX_SPEED),
-    });
-    this.matter.body.setAngularVelocity(
-      this.airplaneBody,
-      this.clamp(this.airplaneBody.angularVelocity, -0.08, 0.08),
-    );
+    this.limitBodyVelocity(this.airplaneBody, AIRPLANE_MAX_SPEED);
+    this.dampenAngularVelocity(this.airplaneBody, 0.04);
 
     if (!this.isAirplaneJourneyActive()) {
       return;
@@ -1303,21 +1362,31 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     const target = this.airplaneGrabTarget;
+    const pointerPosition = {
+      x: target.x + this.airplaneGrabOffset.x,
+      y: target.y + this.airplaneGrabOffset.y,
+    };
     const pointerTargetIsUnsafe =
-      target.x < 42 ||
-      target.x > this.getWorldWidth() - 42 ||
-      target.y < 42 ||
-      target.y > this.getWorldHeight() - 42;
+      pointerPosition.x < 42 ||
+      pointerPosition.x > this.getWorldWidth() - 42 ||
+      pointerPosition.y < 42 ||
+      pointerPosition.y > this.getWorldHeight() - 42;
     if (pointerTargetIsUnsafe) {
       this.beginAirplaneRecovery();
       return;
     }
 
     const corridor = this.getAirplaneFlightBounds();
-    this.airplaneFlightTarget = {
+    const boundedTarget = {
       x: this.clamp(target.x, corridor.minX + 24, corridor.maxX - 24),
       y: this.clamp(target.y, corridor.minY + 24, corridor.maxY - 24),
     };
+    const targetWasConstrained = boundedTarget.x !== target.x || boundedTarget.y !== target.y;
+    this.airplaneFlightTarget = boundedTarget;
+    if (targetWasConstrained && !this.airplaneCorridorFeedbackShown) {
+      this.airplaneCorridorFeedbackShown = true;
+      this.onFeedback?.("airplane-corridor");
+    }
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
   }
 
@@ -1336,8 +1405,18 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     this.airplanePointerId = pointer.id;
-    this.airplaneGrabTarget.x = pointer.x;
-    this.airplaneGrabTarget.y = pointer.y;
+    this.airplaneGrabOffset.x = this.clamp(
+      pointer.x - this.airplaneBody.position.x,
+      -AIRPLANE_WIDTH / 2,
+      AIRPLANE_WIDTH / 2,
+    );
+    this.airplaneGrabOffset.y = this.clamp(
+      pointer.y - this.airplaneBody.position.y,
+      -AIRPLANE_HEIGHT / 2,
+      AIRPLANE_HEIGHT / 2,
+    );
+    this.airplaneGrabTarget.x = this.airplaneBody.position.x;
+    this.airplaneGrabTarget.y = this.airplaneBody.position.y;
     this.matter.body.setAngularVelocity(this.airplaneBody, 0);
     this.onFeedback?.("airplane-grabbed");
   }
@@ -1347,12 +1426,30 @@ export class DepotTenangScene extends Phaser.Scene {
       return false;
     }
 
-    return Phaser.Math.Distance.Between(
-      this.airplaneBody.position.x,
-      this.airplaneBody.position.y,
-      x,
-      y,
-    ) <= AIRPLANE_GRAB_RADIUS;
+    const cosine = Math.cos(this.airplaneBody.angle);
+    const sine = Math.sin(this.airplaneBody.angle);
+    const toLocal = (point: { x: number; y: number }) => {
+      const offsetX = point.x - this.airplaneBody!.position.x;
+      const offsetY = point.y - this.airplaneBody!.position.y;
+      return {
+        x: (offsetX * cosine + offsetY * sine) / AIRPLANE_GRAB_BOUNDS.halfWidth,
+        y: (-offsetX * sine + offsetY * cosine) / AIRPLANE_GRAB_BOUNDS.halfHeight,
+      };
+    };
+    const pointer = toLocal({ x, y });
+    const target = toLocal(this.airplaneFlightTarget);
+    const targetLengthSquared = target.x * target.x + target.y * target.y;
+    const projection =
+      targetLengthSquared === 0
+        ? 0
+        : this.clamp((pointer.x * target.x + pointer.y * target.y) / targetLengthSquared, 0, 1);
+    const nearestPoint = {
+      x: target.x * projection,
+      y: target.y * projection,
+    };
+    const distanceX = pointer.x - nearestPoint.x;
+    const distanceY = pointer.y - nearestPoint.y;
+    return distanceX * distanceX + distanceY * distanceY <= 1;
   }
 
   private isNearAirplaneRestingPlace(x: number, y: number): boolean {
@@ -1460,9 +1557,8 @@ export class DepotTenangScene extends Phaser.Scene {
     this.activeVehicle = "truck";
     this.truckPhase = "moving";
     this.resetActivityBeats("truck");
-    this.lastTruckMovementAt = this.time.now;
     this.wakeBody(this.truckBody);
-    this.matter.body.setVelocity(this.truckBody, { x: TRUCK_SPEED, y: 0 });
+    this.matter.body.setVelocity(this.truckBody, { x: 0, y: 0 });
     this.matter.body.setAngularVelocity(this.truckBody, 0);
     this.resetMotionWatch(this.truckBody, this.getTruckArrivalPoint());
     this.onActionAccepted?.();
@@ -1475,10 +1571,14 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     this.truckPhase = "returning";
-    this.lastTruckMovementAt = this.time.now;
     this.wakeBody(this.truckBody);
-    this.matter.body.setVelocity(this.truckBody, { x: -TRUCK_SPEED, y: 0 });
+    this.matter.body.setVelocity(this.truckBody, { x: 0, y: 0 });
     this.matter.body.setAngularVelocity(this.truckBody, 0);
+    for (const cargo of this.cargoBodies) {
+      cargo.ignoreGravity = true;
+      cargo.isSensor = true;
+      this.wakeBody(cargo);
+    }
     this.resetMotionWatch(this.truckBody, this.getTruckStartingPoint());
     this.onActionAccepted?.();
     this.onStateChange("returning");
@@ -1522,9 +1622,8 @@ export class DepotTenangScene extends Phaser.Scene {
     this.trainPhase = "moving";
     this.trainSwayFeedbackShown = false;
     this.resetActivityBeats("train");
-    this.lastTrainMovementAt = this.time.now;
     this.wakeTrainBodies();
-    this.matter.body.setVelocity(this.trainBody, { x: -TRAIN_SPEED, y: 0 });
+    this.matter.body.setVelocity(this.trainBody, { x: 0, y: 0 });
     this.matter.body.setAngularVelocity(this.trainBody, 0);
     this.resetTrainMotionWatches(this.getTrainArrivalPoint());
     this.onActionAccepted?.();
@@ -1537,9 +1636,8 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     this.trainPhase = "returning";
-    this.lastTrainMovementAt = this.time.now;
     this.wakeTrainBodies();
-    this.matter.body.setVelocity(this.trainBody, { x: TRAIN_SPEED, y: 0 });
+    this.matter.body.setVelocity(this.trainBody, { x: 0, y: 0 });
     this.matter.body.setAngularVelocity(this.trainBody, 0);
     this.resetTrainMotionWatches(this.getTrainStartingPoint());
     this.onActionAccepted?.();
@@ -1605,8 +1703,10 @@ export class DepotTenangScene extends Phaser.Scene {
   private beginCargoGrab(cargo: MatterJS.BodyType, pointer: Phaser.Input.Pointer): void {
     this.grabbedCargo = cargo;
     this.grabPointerId = pointer.id;
-    this.grabTarget.x = pointer.x;
-    this.grabTarget.y = pointer.y;
+    this.grabOffset.x = pointer.x - cargo.position.x;
+    this.grabOffset.y = pointer.y - cargo.position.y;
+    this.grabTarget.x = cargo.position.x;
+    this.grabTarget.y = cargo.position.y;
     this.grabStart.x = pointer.x;
     this.grabStart.y = pointer.y;
     this.grabStartedAt = this.time.now;
@@ -1618,8 +1718,10 @@ export class DepotTenangScene extends Phaser.Scene {
   private beginTrainGrab(trainBody: MatterJS.BodyType, pointer: Phaser.Input.Pointer): void {
     this.trainGrabbedBody = trainBody;
     this.trainGrabPointerId = pointer.id;
-    this.trainGrabTarget.x = pointer.x;
-    this.trainGrabTarget.y = pointer.y;
+    this.trainGrabOffset.x = pointer.x - trainBody.position.x;
+    this.trainGrabOffset.y = pointer.y - trainBody.position.y;
+    this.trainGrabTarget.x = trainBody.position.x;
+    this.trainGrabTarget.y = trainBody.position.y;
     this.trainGrabStart.x = pointer.x;
     this.trainGrabStart.y = pointer.y;
     this.trainGrabStartedAt = this.time.now;
@@ -1688,6 +1790,7 @@ export class DepotTenangScene extends Phaser.Scene {
     target: { x: number; y: number },
     maxSpeed: number,
     maxAngularSpeed: number,
+    deltaMs: number,
   ): boolean {
     const pointerTargetIsUnsafe =
       target.x < 30 ||
@@ -1699,26 +1802,28 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     const impulseScale = this.getPhysicsImpulseScale();
-    const xVelocity = this.clamp(
-      (target.x - body.position.x) * 0.16 * impulseScale,
-      -maxSpeed,
-      maxSpeed,
-    );
-    const yVelocity = this.clamp(
-      (target.y - body.position.y) * 0.16 * impulseScale,
-      -maxSpeed,
-      maxSpeed,
+    const profile: GuidedMotionProfile = {
+      ...SOFT_GRAB_GUIDED_PROFILE,
+      acceleration: SOFT_GRAB_GUIDED_PROFILE.acceleration * impulseScale,
+      deceleration: SOFT_GRAB_GUIDED_PROFILE.deceleration * impulseScale,
+      maxSpeed: maxSpeed * impulseScale,
+    };
+    const step = stepGuidedMotion(
+      {
+        position: body.position,
+        velocity: body.velocity,
+      },
+      target,
+      profile,
+      deltaMs,
     );
     this.wakeBody(body);
-    this.matter.body.setVelocity(body, { x: xVelocity, y: yVelocity });
-    this.matter.body.setAngularVelocity(
-      body,
-      this.clamp(-body.angle * 0.12 * impulseScale, -maxAngularSpeed, maxAngularSpeed),
-    );
+    this.matter.body.setVelocity(body, step.velocity);
+    this.dampenAngularVelocity(body, maxAngularSpeed);
     return true;
   }
 
-  private updateGrabbedCargo(): void {
+  private updateGrabbedCargo(deltaMs: number): void {
     if (!this.grabbedCargo || this.cargoRecoveryTargets.has(this.grabbedCargo)) {
       return;
     }
@@ -1730,13 +1835,14 @@ export class DepotTenangScene extends Phaser.Scene {
         this.grabTarget,
         CARGO_MAX_SPEED,
         CARGO_MAX_ANGULAR_SPEED,
+        deltaMs,
       )
     ) {
       this.beginCargoRecovery(grabbedCargo);
     }
   }
 
-  private updateGrabbedTrain(): void {
+  private updateGrabbedTrain(deltaMs: number): void {
     if (!this.trainGrabbedBody || this.trainRecoveryTargets.has(this.trainGrabbedBody)) {
       return;
     }
@@ -1747,6 +1853,7 @@ export class DepotTenangScene extends Phaser.Scene {
         this.trainGrabTarget,
         TRAIN_MAX_SPEED,
         TRAIN_MAX_ANGULAR_SPEED,
+        deltaMs,
       )
     ) {
       this.beginTrainRecovery();
@@ -1914,20 +2021,13 @@ export class DepotTenangScene extends Phaser.Scene {
     return targetDistance > RECOVERY_TARGET_DISTANCE && lowMotionElapsed >= RECOVERY_STUCK_TIMEOUT_MS;
   }
 
-  private updateTruckSafety(): void {
+  private updateTruckSafety(deltaMs: number): void {
     if (!this.truckBody) {
       return;
     }
 
-    const velocity = this.truckBody.velocity;
-    this.matter.body.setVelocity(this.truckBody, {
-      x: this.clamp(velocity.x, -TRUCK_MAX_SPEED, TRUCK_MAX_SPEED),
-      y: this.clamp(velocity.y, -TRUCK_MAX_SPEED, TRUCK_MAX_SPEED),
-    });
-    this.matter.body.setAngularVelocity(
-      this.truckBody,
-      this.clamp(this.truckBody.angularVelocity, -0.08, 0.08),
-    );
+    this.limitBodyVelocity(this.truckBody, TRUCK_MAX_SPEED);
+    this.dampenAngularVelocity(this.truckBody, 0.04);
 
     const position = this.truckBody.position;
     const isOutOfBounds =
@@ -1944,26 +2044,26 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    const distance = Phaser.Math.Distance.Between(
-      position.x,
-      position.y,
-      this.truckRecoveryTarget.x,
-      this.truckRecoveryTarget.y,
+    const step = stepGuidedMotion(
+      {
+        position: this.truckBody.position,
+        velocity: this.truckBody.velocity,
+      },
+      this.truckRecoveryTarget,
+      TRUCK_RECOVERY_GUIDED_PROFILE,
+      deltaMs,
     );
+    this.wakeBody(this.truckBody);
+    this.matter.body.setVelocity(this.truckBody, step.velocity);
+    this.dampenAngularVelocity(this.truckBody, 0.04);
 
-    if (distance <= 10) {
+    if (step.arrived) {
       this.matter.body.setPosition(this.truckBody, this.truckRecoveryTarget);
       this.matter.body.setVelocity(this.truckBody, { x: 0, y: 0 });
       this.matter.body.setAngularVelocity(this.truckBody, 0);
       this.truckRecoveryTarget = undefined;
       this.onStateChange(this.truckPhase);
-      return;
     }
-
-    this.matter.body.setVelocity(this.truckBody, {
-      x: this.clamp((this.truckRecoveryTarget.x - position.x) * 0.12, -2, 2),
-      y: this.clamp((this.truckRecoveryTarget.y - position.y) * 0.12, -2, 2),
-    });
   }
 
   private updateTrainConstraintFeedback(): void {
@@ -2006,25 +2106,18 @@ export class DepotTenangScene extends Phaser.Scene {
     }
   }
 
-  private updateTrainSafety(): void {
+  private updateTrainSafety(deltaMs: number): void {
     const trainBodies = this.getTrainBodies();
     if (trainBodies.length === 0) {
       return;
     }
 
     for (const trainBody of trainBodies) {
-      const velocity = trainBody.velocity;
-      this.matter.body.setVelocity(trainBody, {
-        x: this.clamp(velocity.x, -TRAIN_MAX_SPEED, TRAIN_MAX_SPEED),
-        y: this.clamp(velocity.y, -TRAIN_MAX_SPEED, TRAIN_MAX_SPEED),
-      });
-      this.matter.body.setAngularVelocity(
-        trainBody,
-        this.clamp(trainBody.angularVelocity, -TRAIN_MAX_ANGULAR_SPEED, TRAIN_MAX_ANGULAR_SPEED),
-      );
+      this.limitBodyVelocity(trainBody, TRAIN_MAX_SPEED);
+      this.dampenAngularVelocity(trainBody, TRAIN_MAX_ANGULAR_SPEED);
 
       if (this.trainRecoveryTargets.has(trainBody)) {
-        this.moveTrainToRecoveryTarget(trainBody);
+        this.moveTrainToRecoveryTarget(trainBody, deltaMs);
       }
     }
 
@@ -2078,13 +2171,13 @@ export class DepotTenangScene extends Phaser.Scene {
     this.trainGrabPointerId = undefined;
     const anchor = this.getTrainRecoveryAnchor();
     this.trainRecoveryTargets.clear();
-    this.trainRecoveryLastMovedAt.clear();
     this.trainRecoveryTargets.set(this.trainBody, anchor);
     for (const [index, carriage] of this.trainCarriageBodies.entries()) {
       this.trainRecoveryTargets.set(carriage, this.getTrainCarriagePosition(anchor, index));
     }
     for (const trainBody of this.getTrainBodies()) {
-      this.trainRecoveryLastMovedAt.set(trainBody, this.time.now);
+      this.matter.body.setVelocity(trainBody, { x: 0, y: 0 });
+      this.matter.body.setAngularVelocity(trainBody, 0);
       const target = this.trainRecoveryTargets.get(trainBody);
       if (target) {
         this.resetMotionWatch(trainBody, target);
@@ -2094,40 +2187,33 @@ export class DepotTenangScene extends Phaser.Scene {
     this.onStateChange("train-recovering");
   }
 
-  private moveTrainToRecoveryTarget(trainBody: MatterJS.BodyType): void {
+  private moveTrainToRecoveryTarget(trainBody: MatterJS.BodyType, deltaMs: number): void {
     const target = this.trainRecoveryTargets.get(trainBody);
     if (!target) {
       return;
     }
 
-    const distance = Phaser.Math.Distance.Between(
-      trainBody.position.x,
-      trainBody.position.y,
-      target.x,
-      target.y,
+    const step = stepGuidedMotion(
+      {
+        position: trainBody.position,
+        velocity: trainBody.velocity,
+      },
+      target,
+      TRAIN_RECOVERY_GUIDED_PROFILE,
+      deltaMs,
     );
-    if (distance <= 8) {
+    this.wakeBody(trainBody);
+    this.matter.body.setVelocity(trainBody, step.velocity);
+    this.dampenAngularVelocity(trainBody, TRAIN_MAX_ANGULAR_SPEED);
+
+    if (step.arrived) {
       this.matter.body.setPosition(trainBody, target);
       this.matter.body.setVelocity(trainBody, { x: 0, y: 0 });
       this.matter.body.setAngle(trainBody, 0);
       this.matter.body.setAngularVelocity(trainBody, 0);
       this.trainRecoveryTargets.delete(trainBody);
-      this.trainRecoveryLastMovedAt.delete(trainBody);
       return;
     }
-
-    const now = this.time.now;
-    const lastMovedAt = this.trainRecoveryLastMovedAt.get(trainBody) ?? now;
-    const elapsed = this.clamp(now - lastMovedAt, 0, 120);
-    this.trainRecoveryLastMovedAt.set(trainBody, now);
-    const step = Math.min(TRAIN_RECOVERY_SPEED * (elapsed / 1_000), distance);
-    const progress = step / distance;
-    this.matter.body.setPosition(trainBody, {
-      x: trainBody.position.x + (target.x - trainBody.position.x) * progress,
-      y: trainBody.position.y + (target.y - trainBody.position.y) * progress,
-    });
-    this.matter.body.setVelocity(trainBody, { x: 0, y: 0 });
-    this.matter.body.setAngularVelocity(trainBody, this.clamp(-trainBody.angle * 0.14, -0.06, 0.06));
   }
 
   private getTrainRecoveryAnchor(): { x: number; y: number } {
@@ -2146,20 +2232,13 @@ export class DepotTenangScene extends Phaser.Scene {
     };
   }
 
-  private updateCargoSafety(): void {
+  private updateCargoSafety(deltaMs: number): void {
     for (const cargo of this.cargoBodies) {
-      const velocity = cargo.velocity;
-      this.matter.body.setVelocity(cargo, {
-        x: this.clamp(velocity.x, -CARGO_MAX_SPEED, CARGO_MAX_SPEED),
-        y: this.clamp(velocity.y, -CARGO_MAX_SPEED, CARGO_MAX_SPEED),
-      });
-      this.matter.body.setAngularVelocity(
-        cargo,
-        this.clamp(cargo.angularVelocity, -CARGO_MAX_ANGULAR_SPEED, CARGO_MAX_ANGULAR_SPEED),
-      );
+      this.limitBodyVelocity(cargo, CARGO_MAX_SPEED);
+      this.dampenAngularVelocity(cargo, CARGO_MAX_ANGULAR_SPEED);
 
       if (this.cargoRecoveryTargets.has(cargo)) {
-        this.moveCargoToRecoveryTarget(cargo);
+        this.moveCargoToRecoveryTarget(cargo, deltaMs);
         continue;
       }
 
@@ -2189,9 +2268,12 @@ export class DepotTenangScene extends Phaser.Scene {
       this.grabPointerId = undefined;
     }
 
+    cargo.ignoreGravity = true;
+    this.wakeBody(cargo);
+    this.matter.body.setVelocity(cargo, { x: 0, y: 0 });
+    this.matter.body.setAngularVelocity(cargo, 0);
     const target = this.getSafeCargoPosition(this.cargoBodies.indexOf(cargo));
     this.cargoRecoveryTargets.set(cargo, target);
-    this.cargoRecoveryLastMovedAt.set(cargo, this.time.now);
     this.resetMotionWatch(cargo, target);
     if (!this.cargoRecoveryActive) {
       this.cargoRecoveryActive = true;
@@ -2199,34 +2281,34 @@ export class DepotTenangScene extends Phaser.Scene {
     }
   }
 
-  private moveCargoToRecoveryTarget(cargo: MatterJS.BodyType): void {
+  private moveCargoToRecoveryTarget(cargo: MatterJS.BodyType, deltaMs: number): void {
     const target = this.cargoRecoveryTargets.get(cargo);
     if (!target) {
       return;
     }
 
-    const distance = Phaser.Math.Distance.Between(cargo.position.x, cargo.position.y, target.x, target.y);
-    if (distance <= 8) {
+    const step = stepGuidedMotion(
+      {
+        position: cargo.position,
+        velocity: cargo.velocity,
+      },
+      target,
+      CARGO_RECOVERY_GUIDED_PROFILE,
+      deltaMs,
+    );
+    this.wakeBody(cargo);
+    this.matter.body.setVelocity(cargo, step.velocity);
+    this.dampenAngularVelocity(cargo, CARGO_MAX_ANGULAR_SPEED);
+
+    if (step.arrived) {
       this.matter.body.setPosition(cargo, target);
       this.matter.body.setVelocity(cargo, { x: 0, y: 0 });
+      cargo.ignoreGravity = false;
+      cargo.isSensor = false;
       this.matter.body.setAngularVelocity(cargo, 0);
       this.cargoRecoveryTargets.delete(cargo);
-      this.cargoRecoveryLastMovedAt.delete(cargo);
       return;
     }
-
-    const now = this.time.now;
-    const lastMovedAt = this.cargoRecoveryLastMovedAt.get(cargo) ?? now;
-    const elapsed = this.clamp(now - lastMovedAt, 0, 120);
-    this.cargoRecoveryLastMovedAt.set(cargo, now);
-    const step = Math.min(CARGO_RECOVERY_SPEED * (elapsed / 1_000), distance);
-    const progress = step / distance;
-    this.matter.body.setPosition(cargo, {
-      x: cargo.position.x + (target.x - cargo.position.x) * progress,
-      y: cargo.position.y + (target.y - cargo.position.y) * progress,
-    });
-    this.matter.body.setVelocity(cargo, { x: 0, y: 0 });
-    this.matter.body.setAngularVelocity(cargo, this.clamp(-cargo.angle * 0.14, -0.08, 0.08));
   }
 
   private updateCargoVisuals(): void {
@@ -2280,7 +2362,7 @@ export class DepotTenangScene extends Phaser.Scene {
     }
   }
 
-  private syncLoadedCargo(): void {
+  private syncLoadedCargo(deltaMs: number): void {
     if (!this.truckBody) {
       return;
     }
@@ -2293,13 +2375,22 @@ export class DepotTenangScene extends Phaser.Scene {
 
     for (const [index, cargo] of this.cargoBodies.entries()) {
       const offset = cargoOffsets[index] ?? cargoOffsets[0];
-      this.matter.body.setPosition(cargo, {
+      const target = {
         x: this.truckBody.position.x + offset.x,
         y: this.truckBody.position.y + offset.y,
-      });
-      this.matter.body.setVelocity(cargo, this.truckBody.velocity);
-      this.matter.body.setAngle(cargo, 0);
-      this.matter.body.setAngularVelocity(cargo, 0);
+      };
+      const step = stepGuidedMotion(
+        {
+          position: cargo.position,
+          velocity: cargo.velocity,
+        },
+        target,
+        CARGO_LOAD_GUIDED_PROFILE,
+        deltaMs,
+      );
+      this.wakeBody(cargo);
+      this.matter.body.setVelocity(cargo, step.velocity);
+      this.dampenAngularVelocity(cargo, CARGO_MAX_ANGULAR_SPEED);
     }
   }
 
@@ -2312,7 +2403,6 @@ export class DepotTenangScene extends Phaser.Scene {
     this.cargoBodies = [];
     this.cargoVisuals.clear();
     this.cargoRecoveryTargets.clear();
-    this.cargoRecoveryLastMovedAt.clear();
     this.cargoRecoveryActive = false;
     this.grabbedCargo = undefined;
     this.grabPointerId = undefined;
@@ -2380,11 +2470,34 @@ export class DepotTenangScene extends Phaser.Scene {
     return Math.min(Math.max(value, minimum), maximum);
   }
 
+  private dampenAngularVelocity(body: MatterJS.BodyType, maximum: number): void {
+    const angularVelocity = body.angularVelocity;
+    const dampedVelocity = Math.abs(angularVelocity) <= 0.001 ? 0 : angularVelocity * 0.72;
+    const safeVelocity = this.clamp(dampedVelocity, -maximum, maximum);
+    if (safeVelocity !== angularVelocity) {
+      this.matter.body.setAngularVelocity(body, safeVelocity);
+    }
+  }
+
+  private limitBodyVelocity(body: MatterJS.BodyType, maximum: number): void {
+    const speed = Math.hypot(body.velocity.x, body.velocity.y);
+    if (speed <= maximum || speed === 0) {
+      return;
+    }
+
+    const scale = maximum / speed;
+    this.matter.body.setVelocity(body, {
+      x: body.velocity.x * scale,
+      y: body.velocity.y * scale,
+    });
+  }
+
   private getPhysicsImpulseScale(): number {
     return this.reducedMotion ? 0.55 : 1;
   }
 
   private wakeBody(body: MatterJS.BodyType): void {
     body.isSleeping = false;
+    (body as MatterJS.BodyType & { sleepCounter: number }).sleepCounter = 0;
   }
 }
