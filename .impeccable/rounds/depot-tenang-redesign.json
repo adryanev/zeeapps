@@ -1,0 +1,92 @@
+{
+  "title": "Pilih dunia baru Depot Tenang",
+  "question": "Semua pilihan mempertahankan truk, kereta, pesawat, tap, drag, keyboard, dan permainan tenang. Pilih dunia yang paling ingin kamu lihat bergerak.",
+  "options": [
+    {
+      "id": "assigned-magnetic-story-board",
+      "label": "Papan Cerita Magnetik",
+      "kicker": "THE ROLL",
+      "lineage": "papan magnet anak dan kepingan mainan besar",
+      "thesis": "Satu kendaraan menjadi kepingan magnet besar yang menghidupkan satu bagian dunia pada satu waktu.",
+      "palette": ["#183C40", "#F4C95D", "#EF7659", "#8CC7A1", "#F8F1DE"],
+      "materials": ["enamel magnet", "painted steel", "soft cork edge"],
+      "viewport": "Satu papan penuh layar dengan tiga rumah di tepi dan satu jalur melengkung yang memakai hampir seluruh tinggi layar.",
+      "risk": "Bisa terasa seperti aplikasi belajar bila kepingan terlalu rapi atau diberi banyak label.",
+      "raised": [
+        {
+          "from": "forge clarity",
+          "raise": "Setiap tap menghasilkan satu respons mekanis yang tegas lalu kembali tenang."
+        },
+        {
+          "from": "reference-setting discipline",
+          "raise": "Grid permainan menjaga rumah, jalur, dan kendaraan tidak pernah saling menumpuk."
+        },
+        {
+          "from": "phosphor focus",
+          "raise": "Hanya kendaraan aktif yang memiliki jejak cahaya; dunia lain tetap diam."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/magnetic-story-board.png"
+    },
+    {
+      "id": "model-pick-wooden-play-table",
+      "label": "Meja Mainan Kayu",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "meja kereta kayu dan balok susun",
+      "thesis": "Depot menjadi satu meja mainan fisik dengan jalur kayu yang bisa dibaca tanpa tulisan.",
+      "palette": ["#164B52", "#E7A84A", "#D45D4C", "#78A86B", "#F5E7C8"],
+      "materials": ["painted beech wood", "rounded blocks", "felt landscape"],
+      "viewport": "Kamera rendah melihat meja dari sudut tiga-perempat; jalan, rel, dan landasan membentuk satu putaran besar tanpa area kosong.",
+      "risk": "Ini arah paling familiar untuk permainan toddler dan mudah terasa generik bila aset kayunya tidak benar-benar khas.",
+      "comp": ".impeccable/mocks/decision/wooden-play-table.png"
+    },
+    {
+      "id": "challenger-painted-story-layers",
+      "label": "Buku Cerita Berlapis",
+      "verdict": "competitive",
+      "lineage": "multiplane cel animation dan buku gambar panggung",
+      "thesis": "Setiap perjalanan membuka lapisan gambar baru seperti halaman cerita yang bergerak.",
+      "palette": ["#244B55", "#A9D5C9", "#F6D27A", "#D96D55", "#F7EEDB"],
+      "materials": ["gouache paint", "cut paper planes", "soft pencil edge"],
+      "viewport": "Langit, rel, dan jalan tersusun sebagai tiga bidang kedalaman; kendaraan aktif menggeser kamera lembut ke rumahnya.",
+      "case": "Sangat kuat untuk rasa cerita dan ketenangan, tetapi sedikit kurang terasa seperti mainan yang bisa disentuh.",
+      "risk": "Parallax berlebih dapat mengganggu toddler dan harus berhenti sepenuhnya pada Reduced Motion.",
+      "comp": ".impeccable/mocks/decision/painted-story-layers.png",
+      "hero": "https://impeccable.style/worlds/cards/cinema-cinematography-editing-multiplane-cel-dawn-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/cinema-cinematography-editing-multiplane-cel-dawn.webp"
+    },
+    {
+      "id": "challenger-little-journey-board",
+      "label": "Papan Perjalanan Kecil",
+      "verdict": "competitive",
+      "lineage": "boarding pass, gate board, dan papan keberangkatan mainan",
+      "thesis": "Perjalanan terlihat sebagai tiga kartu besar yang berpindah tempat saat kendaraan datang dan pulang.",
+      "palette": ["#102F35", "#F6E4A6", "#ED775C", "#7FC4B5", "#FFF9EA"],
+      "materials": ["flip tiles", "ticket card", "matte transit enamel"],
+      "viewport": "Tiga panel perjalanan memenuhi layar dengan kendaraan besar; panel aktif membuka menjadi area bermain penuh.",
+      "case": "Struktur perjalanan sangat jelas, tetapi bahasa transportasi publik lebih dekat ke orang dewasa daripada toddler.",
+      "risk": "Bisa kembali terasa seperti dashboard bila angka, jadwal, atau tulisan terlalu dominan.",
+      "comp": ".impeccable/mocks/decision/little-journey-board.png",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Game Anak Konvensional",
+    "thesis": "Diorama kartun 2D yang rapi, penuh warna, dan langsung terbaca sebagai permainan kendaraan.",
+    "palette": ["#74C9D2", "#FFD45A", "#FF765F", "#6DBB72", "#FFF7E7"],
+    "materials": ["clean vector shapes", "rounded cartoon shading"],
+    "viewport": "Satu lanskap penuh layar, tiga zona bertumpuk, kendaraan besar, dan HUD minimal di sudut.",
+    "risk": "Jelas dan aman, tetapi mudah terlihat sama dengan banyak game anak lain.",
+    "comp": ".impeccable/mocks/decision/conventional-kids-game.png"
+  },
+  "steer": true
+}

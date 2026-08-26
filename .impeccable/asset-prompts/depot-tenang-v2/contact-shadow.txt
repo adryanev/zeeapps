@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent contact-shadow sprite for a Phaser 2.5D toddler game
+Input image: the approved follow-the-vehicle comp is a style and material reference only; match its soft grounded toy-diorama lighting and calm handcrafted craft.
+Primary request: one reusable soft offset contact shadow sprite for wooden homes and vehicles in Depot Tenang.
+Scene/backdrop: none; genuinely transparent background around the shadow.
+Subject: a low wide irregular oval shadow with a darker compact center beneath wheels and a feathered warm-gray edge, designed to sit under a toy on beech or asphalt. Keep it subtle and neutral, not a black blob.
+Style/medium: high-fidelity painted soft-shadow texture, 2.5D sprite, no photography.
+Composition/framing: wide horizontal standalone sprite, full blur envelope visible with transparent breathing room; target at least 1000 x 350 px; no object, no ground texture.
+Lighting/mood: soft warm daylight from upper left, diffuse occlusion, calm and grounded.
+Color palette: dark contact #25230C at low opacity, warm charcoal #3A3426, transparent edges.
+Materials/textures: matte feathered pigment, smooth falloff with a slightly denser center.
+Constraints: true transparent background with clean anti-aliased alpha; reusable layer; no text, labels, logos, watermark, people, vehicles, homes, UI, card frame, or cast shadow beyond the sprite itself.
+Avoid: hard-edged ellipse, pure black, glossy effect, dramatic spotlight, checkerboard.

@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent independently composited vehicle body for a Phaser 2.5D toddler game
+Input image: the provided approved follow-the-vehicle comp is a style and material reference only; preserve its chunky painted wood, low close three-quarter side view, rounded edges, warm daylight, tactile grain, and palette. Do not copy the full scene.
+Primary request: a standalone small wooden toy airplane body for Depot Tenang, with the propeller intentionally omitted so a separate propeller sprite can animate in front.
+Scene/backdrop: none; genuinely transparent background around the vehicle.
+Subject: a friendly chunky toy airplane in low three-quarter side view facing right, pale beech fuselage with a muted teal top and wing, coral-red tail accent, rounded wooden nose hub left empty for a separate propeller, small golden cockpit window with no pilot or face, two simple dark landing-wheel openings that can accept separate wheels. Keep the whole aircraft body as one clean independent cutout.
+Style/medium: high-fidelity hand-painted wooden toy illustration, tactile carved beech grain, soft matte paint, 2.5D game sprite, no photography.
+Composition/framing: centered standalone body, full silhouette visible with transparent breathing room; target at least 1200 px wide; no sky, no runway, no attached propeller, no cast shadow.
+Lighting/mood: warm soft daylight from upper left, subtle object shading and internal occlusion only.
+Color palette: pale beech #DBBF94, teal #35695D, coral #BE5A25, gold #D8AF4A, dark contact #25230C.
+Materials/textures: rounded painted wood profiles, tiny carved seam lines, softly worn toy finish, readable chunky shapes at toddler scale.
+Constraints: true transparent background with clean anti-aliased alpha; reusable independent layer; propeller must be absent and nose hub unobstructed for a separate animated propeller sprite; no labels, text, logos, watermark, people, faces, UI, speed blur, or card frame.
+Avoid: photoreal airplane, glossy plastic, harsh black outline, cropped wing or tail, letterboxing, visible checkerboard.

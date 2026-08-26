@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent particle sprite for a Phaser 2.5D toddler game
+Input image: the approved follow-the-vehicle comp is a style and material reference only; match its soft felt, warm daylight, and handcrafted toy-diorama craft.
+Primary request: one small calm felt dust puff sprite that appears briefly behind a moving wooden vehicle in Depot Tenang.
+Scene/backdrop: none; genuinely transparent background around the particle.
+Subject: a loose cluster of 8 to 12 soft irregular pale beige and muted olive felt tufts, low and horizontally spread like a tiny puff settling on the road; edges feathered but still readable at small size. No smoke cloud, no hard outline.
+Style/medium: high-fidelity hand-painted felt/toy particle, matte fibers, 2.5D sprite, no photography.
+Composition/framing: wide compact standalone sprite, full puff visible with transparent breathing room; target at least 800 x 400 px; no ground plane, no road, no vehicle.
+Lighting/mood: soft warm daylight, gentle internal occlusion, quiet and reassuring.
+Color palette: pale beech #DBBF94, felt #6D894F, deep olive #4A4C29, tiny warm dust #B88B5A.
+Materials/textures: fuzzy felt fibers and soft paper-like dust edges, low contrast.
+Constraints: true transparent background with clean anti-aliased alpha; reusable particle sprite; no text, labels, logos, watermark, people, faces, UI, card frame, cast shadow, action blur.
+Avoid: dramatic smoke, explosion, fire, photoreal dust, neon, glossy plastic, harsh black outline, checkerboard.

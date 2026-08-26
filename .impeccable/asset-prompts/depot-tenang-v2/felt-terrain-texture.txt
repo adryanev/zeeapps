@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: seamless opaque material texture for a Phaser 2.5D toddler game
+Input image: the approved follow-the-vehicle comp is a style and material reference only; match its dense tactile olive felt terrain and calm handcrafted toy-diorama craft.
+Primary request: a square seamless felt terrain texture for hills, islands, and bushes behind Depot Tenang's road and rails.
+Scene/backdrop: none; flat material swatch filling the frame.
+Subject: dense short-pile olive-green felt with soft fiber direction, tiny irregular woven fuzz, subtle darker green flecks, and gentle hand-painted variation; no hills, bushes, objects, seam, border, or perspective.
+Style/medium: high-fidelity tactile material texture, handcrafted toy diorama, no photography.
+Composition/framing: seamless tile with no obvious repeat, uniform density edge-to-edge; target at least 1024 x 1024 px.
+Lighting/mood: diffuse even warm daylight, minimal directional shading.
+Color palette: felt base #6D894F with deep olive #4A4C29 shadows and restrained yellow-green fibers.
+Materials/textures: fuzzy felt fibers readable at close crop, matte and soft, calm rather than noisy.
+Constraints: opaque reusable texture; no text, labels, logos, watermark, people, vehicles, homes, card frame, browser chrome, or hard horizon.
+Avoid: photoreal grass, plastic, glossy surface, high contrast noise, checkerboard, 3D landscape.

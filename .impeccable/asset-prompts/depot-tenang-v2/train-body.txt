@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent independently composited vehicle body for a Phaser 2.5D toddler game
+Input image: the provided approved follow-the-vehicle comp is a style and material reference only; preserve its chunky painted wood, low close three-quarter side view, rounded edges, warm daylight, tactile grain, and palette. Do not copy the full scene.
+Primary request: a standalone quiet wooden toy train body for Depot Tenang, with the wheels intentionally omitted so separate wheel sprites can animate underneath.
+Scene/backdrop: none; genuinely transparent background around the vehicle.
+Subject: a compact toy locomotive with one short rounded engine and two connected simple cars, shown in low three-quarter side view facing right. Use deep teal and muted coral painted wood, one golden boiler cap, warm mustard and pale beech car panels, tiny carved windows with no text, and clean rounded wheel arches with empty transparent openings. Keep the train cohesive as one body layer; no rails or platform.
+Style/medium: high-fidelity hand-painted wooden toy illustration, tactile carved beech grain, soft matte paint, 2.5D game sprite, no photography.
+Composition/framing: centered standalone body, full silhouette visible with transparent breathing room; target at least 1400 px wide; no ground, no attached tires, no cast shadow.
+Lighting/mood: warm soft daylight from upper left, subtle object shading and internal occlusion only.
+Color palette: teal #35695D, coral #BE5A25, pale beech #DBBF94, gold #D8AF4A, dark contact #25230C.
+Materials/textures: rounded painted wood profiles, tiny carved seam lines, softly worn toy finish, readable chunky shapes at toddler scale.
+Constraints: true transparent background with clean anti-aliased alpha; reusable independent layer; wheels must be absent and wheel openings unobstructed for separate animated wheel assets; no labels, text, logos, watermark, people, faces, UI, speed blur, or card frame.
+Avoid: photoreal train, glossy plastic, harsh black outline, cropped engine or cars, letterboxing, visible checkerboard.

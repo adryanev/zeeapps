@@ -1,0 +1,224 @@
+{
+  "title": "Depot Tenang v2 production asset inventory",
+  "approved_comp": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+  "direction": "wooden-play-table / follow-the-vehicle",
+  "generated_at": "2026-08-26",
+  "origin_policy": "All produce rasters were generated with the built-in OpenAI image_gen tool using the approved comp as a style/material reference. Exact prompts are recorded in the referenced sidecars and embedded in each PNG as an impeccable:prompt tEXt chunk.",
+  "produce": [
+    {
+      "id": "table-felt-background",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/depot-tenang-table-felt-bg.png",
+      "strategy": "faithful regeneration of the full-height table and felt depth plate",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/depot-tenang-table-felt-bg.txt",
+      "dimensions": "1672x941",
+      "format": "PNG",
+      "transparency": "opaque",
+      "deviations": "Central route is intentionally quiet/open for separately composited road and vehicle layers.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "garage-resting-place",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/garage-cutout.png",
+      "strategy": "transparent cutout regeneration; checkerboard removed and bounds trimmed",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/garage-cutout.txt",
+      "dimensions": "512x387",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "No baked cast shadow, road, or label; CSS/Phaser owns placement and shadow.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "station-resting-place",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/station-cutout.png",
+      "strategy": "transparent cutout regeneration; checkerboard removed and bounds trimmed",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/station-cutout.txt",
+      "dimensions": "512x406",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "Station reads as a small teal-roofed house with platform canopy; no text/signage by design.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "hangar-resting-place",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/hangar-cutout.png",
+      "strategy": "transparent cutout regeneration; checkerboard removed and bounds trimmed",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/hangar-cutout.txt",
+      "dimensions": "512x364",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "No baked cast shadow, runway, or label; CSS/Phaser owns placement and shadow.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "truck-body",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/truck-body.png",
+      "strategy": "transparent vehicle body regeneration with empty wheel wells",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/truck-body.txt",
+      "dimensions": "512x275",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "Wheels and ground shadow intentionally omitted for independent animation/layering.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "train-body",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/train-body.png",
+      "strategy": "transparent vehicle body regeneration with empty wheel arches",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/train-body.txt",
+      "dimensions": "512x197",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "Rails, wheels, and ground shadow intentionally omitted for independent layering.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "airplane-body",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/airplane-body.png",
+      "strategy": "transparent vehicle body regeneration with empty propeller hub",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/airplane-body.txt",
+      "dimensions": "512x299",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "Generator retained two dark landing wheels in the body; the nose propeller remains separate and animatable.",
+      "qa_status": "needs_parent_review"
+    },
+    {
+      "id": "wheel-sprite",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/wheel-sprite.png",
+      "strategy": "transparent reusable wheel regeneration; checkerboard removed and bounds trimmed",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/wheel-sprite.txt",
+      "dimensions": "186x192",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "One reusable wheel is scaled/duplicated by Phaser for truck/train; no baked ground shadow.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "propeller-sprite",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/propeller-sprite.png",
+      "strategy": "transparent reusable propeller regeneration with true alpha and trimmed bounds",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/propeller-sprite.txt",
+      "dimensions": "192x184",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "No airplane body or cast shadow; Phaser owns rotation and placement at the nose hub.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "asphalt-road-texture",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/asphalt-road-texture.png",
+      "strategy": "opaque generated material swatch for tiling under a Phaser-drawn curved road",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/asphalt-road-texture.txt",
+      "dimensions": "512x512",
+      "format": "PNG",
+      "transparency": "opaque",
+      "deviations": "Lane fragments are part of the generated swatch and should be masked/quieted by the road geometry as needed.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "beech-wood-texture",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/beech-wood-texture.png",
+      "strategy": "opaque generated seamless-leaning material swatch for rails, table edges, and pegs",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/beech-wood-texture.txt",
+      "dimensions": "512x512",
+      "format": "PNG",
+      "transparency": "opaque",
+      "deviations": "No route geometry or UI is baked into the texture.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "felt-terrain-texture",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/felt-terrain-texture.png",
+      "strategy": "opaque generated seamless-leaning felt material swatch for hills, islands, and bushes",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/felt-terrain-texture.txt",
+      "dimensions": "512x512",
+      "format": "PNG",
+      "transparency": "opaque",
+      "deviations": "No foliage shapes or scenery are baked into the tile.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "dust-puff",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/dust-puff.png",
+      "strategy": "transparent particle regeneration; checkerboard removed, bounds trimmed, edge softened",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/dust-puff.txt",
+      "dimensions": "256x55",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "A calm felt tuft cluster replaces dramatic smoke; Phaser owns lifetime/settling.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "contact-shadow",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/contact-shadow.png",
+      "strategy": "transparent soft-shadow regeneration with preserved 8-bit alpha and trimmed bounds",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/contact-shadow.txt",
+      "dimensions": "512x166",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "Shadow is intentionally separate from objects so depth/offset can be tuned in Phaser.",
+      "qa_status": "accepted"
+    }
+  ],
+  "direct": [],
+  "semantic": [
+    {
+      "id": "curved-road-rail-runway-geometry",
+      "implementation": "Phaser/Matter geometry masked with asphalt-road-texture and beech-wood-texture; draw broad curved road, quiet edge railway, and runway as world layers.",
+      "notes": "Keep the route readable and full-height; CSS/Phaser owns border radius, masks, perspective, and responsive cropping.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "journey-physics-and-animation",
+      "implementation": "Phaser/Matter bodies compose truck-body/train-body/airplane-body with wheel-sprite or propeller-sprite; animate body lean, wheel rotation/compression, propeller rotation, dust lifetime, and one damped settle.",
+      "notes": "Reduced Motion removes camera travel/parallax/incidental sway while preserving the same journey and safe targets.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "camera-follow-and-depth",
+      "implementation": "Phaser camera/world-container owns low close follow, slow easing, depth planes, and safe margins; layer table-felt background behind homes and active vehicle.",
+      "notes": "Do not bake camera movement, shadows, radius, or perspective transforms into the raster assets.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "status-pegs-and-companion-gate",
+      "implementation": "Phaser or semantic DOM draws three small beech status pegs, active-state color, and Companion Gate touch corners; use beech-wood-texture only as a material fill.",
+      "notes": "No labels, score, dashboard, or visible debug geometry in the Child Stage.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "accessibility-and-orientation",
+      "implementation": "Semantic DOM live status copy, reduced-motion preference, optional sound setting, keyboard/pointer/touch equivalents, and existing portrait orientation guidance remain code-owned.",
+      "notes": "Do not rasterize text or controls.",
+      "qa_status": "accepted"
+    }
+  ],
+  "execution_order": [
+    "Load depot-tenang-table-felt-bg as the depth plate.",
+    "Mask asphalt-road-texture and beech-wood-texture into the Phaser route geometry; use felt-terrain-texture for additional terrain fill.",
+    "Place garage-cutout, station-cutout, and hangar-cutout in quiet depth planes with contact-shadow beneath each.",
+    "Compose vehicle bodies with wheel-sprite/propeller-sprite as independent children and preserve empty wheel wells/nose hub where supplied.",
+    "Add contact-shadow and dust-puff under/behind the Active Vehicle; tune journey lean, rotation, recovery, camera easing, and Reduced Motion in code."
+  ],
+  "blockers": [],
+  "assumptions": [
+    "PNG is retained for alpha fidelity and prompt tEXt metadata; no optimizer should strip source metadata before handoff.",
+    "The generated material swatches are used as masked/tiled ingredients, not as full-screen replacements.",
+    "Airplane landing wheels are acceptable as static body detail; parent may request a regenerated body if wheel animation is required there too.",
+    "No TypeScript, CSS, tests, package files, PRODUCT.md, or approved comp were edited by this asset pass."
+  ]
+}

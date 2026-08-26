@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent independently animatable propeller sprite for a Phaser 2.5D toddler game
+Input image: the approved follow-the-vehicle comp is a style and material reference only; match its chunky painted wooden toy proportions, matte finish, warm daylight, and tactile craft quality.
+Primary request: one standalone small wooden toy airplane propeller for the airplane body layer.
+Scene/backdrop: none; genuinely transparent background around the propeller.
+Subject: a simple three-blade propeller seen nearly front-on, rounded paddle-shaped blades in warm coral-red and pale beech with a small golden circular hub, designed to sit over the airplane nose opening. Clean concentric center and clear radial silhouette for rotation.
+Style/medium: high-fidelity hand-painted wooden toy illustration, carved beech and matte paint, 2.5D sprite, no photography.
+Composition/framing: square standalone propeller, full silhouette with transparent breathing room; target at least 800 x 800 px; no airplane body, no sky, no cast shadow.
+Lighting/mood: warm soft daylight from upper left, subtle rim highlight and internal occlusion only.
+Color palette: coral #BE5A25, pale beech #DBBF94, gold #D8AF4A, dark contact #25230C.
+Materials/textures: carved wood grain, rounded toy edges, gently worn paint.
+Constraints: true transparent background with clean anti-aliased alpha; reusable and independently rotatable; no labels, text, logos, watermark, people, faces, UI, card frame, or ground shadow.
+Avoid: photoreal propeller, flat icon, glossy plastic, harsh black outline, cropped blades, letterboxing, visible checkerboard.

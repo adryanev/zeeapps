@@ -77,7 +77,13 @@ app.innerHTML = `
       </article>
     </section>
 
-    <section class="child-stage" data-testid="child-stage" aria-labelledby="stage-title" hidden>
+    <section
+      class="child-stage"
+      data-testid="child-stage"
+      data-direction-contract="follow-the-vehicle"
+      aria-labelledby="stage-title"
+      hidden
+    >
       <header class="stage-hud">
         <div>
           <p class="eyebrow">Dunia Zee</p>
@@ -88,6 +94,11 @@ app.innerHTML = `
           <span class="game-status" data-testid="game-status">Depot sedang dibuka</span>
           <span class="diorama-time" data-testid="diorama-time">Afternoon</span>
           <span class="play-cycle-state" data-testid="play-cycle-state">Exploring</span>
+        </div>
+        <div class="stage-pegs" data-testid="stage-pegs" aria-hidden="true">
+          <span class="stage-peg stage-peg--truck" data-vehicle="truck"></span>
+          <span class="stage-peg stage-peg--train" data-vehicle="train"></span>
+          <span class="stage-peg stage-peg--airplane" data-vehicle="airplane"></span>
         </div>
       </header>
       <div
@@ -480,6 +491,7 @@ function updateStageState(state: DepotTenangState): void {
   };
 
   gameStatus.textContent = labels[state];
+  childStage.dataset.vehicleState = state;
   const trainIsActive = state.startsWith("train-") && state !== "train-quiet";
   const airplaneIsActive =
     state === "airplane-taking-off" ||

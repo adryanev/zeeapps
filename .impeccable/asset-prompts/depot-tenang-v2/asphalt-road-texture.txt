@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: seamless opaque material texture for a Phaser 2.5D toddler game
+Input image: the approved follow-the-vehicle comp is a style and material reference only; match its matte handcrafted toy-diorama craft, gentle warm daylight, and palette.
+Primary request: a square seamless asphalt insert texture for Depot Tenang's curved road, intended to tile under a separately drawn wooden route border.
+Scene/backdrop: none; flat top-down / shallow perspective material swatch filling the frame.
+Subject: medium warm-gray matte asphalt with subtle fine aggregate, faint hand-painted variation, tiny irregular speckles, and very sparse short cream lane-mark fragments that remain quiet when tiled; no road border or 3D object.
+Style/medium: high-fidelity tactile material texture, painted toy play-table aesthetic, no photography.
+Composition/framing: seamless tile with no obvious repeat, uniform density edge-to-edge; target at least 1024 x 1024 px.
+Lighting/mood: diffuse even light, minimal shading, no directional cast shadow.
+Color palette: asphalt base #65625A with darker #4E4B43 aggregate, cream lane marks #DBBF94 at low density.
+Materials/textures: matte asphalt grain, soft hand-painted variation, not glossy.
+Constraints: opaque reusable texture; no text, labels, logos, watermark, people, vehicles, homes, card frame, border, or browser chrome; no hard horizon, no perspective vanishing point.
+Avoid: photoreal highway, strong lane pattern, high contrast, neon colors, glossy plastic.

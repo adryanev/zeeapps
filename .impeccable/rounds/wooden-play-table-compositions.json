@@ -1,0 +1,47 @@
+{
+  "title": "Pilih komposisi Meja Mainan Kayu",
+  "question": "Dunia visualnya sudah tetap. Sekarang pilih susunan layar yang paling enak untuk dimainkan berulang kali.",
+  "options": [
+    {
+      "id": "wooden-loop-table",
+      "label": "Meja Putaran Penuh",
+      "kicker": "PILIHAN AWAL",
+      "lineage": "meja kereta kayu dengan satu putaran besar",
+      "thesis": "Seluruh depot terlihat sekaligus, dengan kendaraan aktif membesar di jalur terdekat.",
+      "palette": ["#164B52", "#E7A84A", "#D45D4C", "#78A86B", "#F5E7C8"],
+      "materials": ["painted beech wood", "rounded blocks", "felt landscape"],
+      "viewport": "Jalan membentuk putaran di depan, rel menyapu sisi kiri, dan landasan berada di belakang kanan.",
+      "risk": "Semua rumah tetap terlihat sehingga fokus aktif perlu dibantu cahaya dan kamera.",
+      "comp": ".impeccable/mocks/wooden-compositions/loop-table.png"
+    },
+    {
+      "id": "wooden-turntable-hub",
+      "label": "Pulau Putar Tengah",
+      "lineage": "meja aktivitas kayu dengan pusat mekanis",
+      "thesis": "Satu pulau bundar di tengah berputar perlahan untuk menghubungkan kendaraan aktif ke rumahnya.",
+      "palette": ["#164B52", "#E7A84A", "#D45D4C", "#78A86B", "#F5E7C8"],
+      "materials": ["painted beech wood", "brass pin", "felt landscape"],
+      "viewport": "Tiga jalur datang dari sudut layar menuju pulau tengah; kendaraan aktif menguasai pusat dan dua kendaraan lain beristirahat di tepi.",
+      "risk": "Mekanisme pusat harus tetap terasa seperti mainan, bukan pemilih level.",
+      "comp": ".impeccable/mocks/wooden-compositions/turntable-hub.png"
+    },
+    {
+      "id": "wooden-follow-the-vehicle",
+      "label": "Kamera Mengikuti Kendaraan",
+      "lineage": "meja mainan panjang dengan kamera dekat",
+      "thesis": "Layar hanya menampilkan satu perjalanan besar; rumah lain menunggu di luar fokus sampai gilirannya.",
+      "palette": ["#164B52", "#E7A84A", "#D45D4C", "#78A86B", "#F5E7C8"],
+      "materials": ["painted beech wood", "rubber wheels", "felt landscape"],
+      "viewport": "Kamera rendah dan dekat mengikuti truk pada jalan lebar; rel dan landasan muncul sebagai kedalaman, bukan tiga zona bersamaan.",
+      "risk": "Dunianya paling hidup, tetapi perpindahan kamera harus sangat lambat dan dimatikan pada Reduced Motion.",
+      "comp": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png"
+    }
+  ],
+  "buildPath": {
+    "value": "comp",
+    "toggle": false
+  },
+  "canon": false,
+  "reroll": false,
+  "steer": false
+}

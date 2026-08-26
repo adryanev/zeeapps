@@ -1,0 +1,8 @@
+Use case: ui-mockup
+Asset type: high-fidelity 16:9 landscape web-game Child Stage composition study
+Input image: style and material reference only. Keep its painted beech wood, felt terrain, warm daylight, palette, rounded construction, vehicle design language, and craft quality. Do not copy its layout.
+Primary request: a new Depot Tenang composition called Kamera Mengikuti Kendaraan for a toddler aged 1 year 10 months.
+Scene/backdrop: a long wooden play table seen from a close low camera. A wide curving road fills the foreground and sweeps deep toward a garage. Railway and runway appear as quiet depth layers at the edges rather than three equal zones.
+Subject: one large active wooden truck fills roughly one third of the screen as it rolls along the curve. The garage ahead is clear and inviting. A small resting train and airplane are visible far behind at separate homes but remain subdued. Show animation intent through compressed tires, slight body lean before movement, sequential wheel poses, a tiny felt dust puff, and a grounded soft shadow.
+Composition/framing: cinematic but practical game view, edge-to-edge 16:9, world fills the full height, active route remains fully visible and tappable, no empty lower half, clear safe margins. Only three tiny wooden status pegs in a corner.
+Constraints: no text, no labels, no score, no dashboard, no browser chrome, no watermark, no logos, no people, no faces on vehicles, no action blur, no cropped active truck, no thin horizontal strip layout.

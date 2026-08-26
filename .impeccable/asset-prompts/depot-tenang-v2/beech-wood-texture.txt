@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: seamless opaque material texture for a Phaser 2.5D toddler game
+Input image: the approved follow-the-vehicle comp is a style and material reference only; match its pale painted beech and rounded handcrafted toy craft.
+Primary request: a square seamless painted beech wood texture for route rails, table edges, and small wooden status pegs in Depot Tenang.
+Scene/backdrop: none; flat material swatch filling the frame.
+Subject: pale warm beech with fine linear grain, occasional subtle carved growth marks, gentle hand-painted variation, and a soft matte varnish; no planks, seams, border, object, or perspective.
+Style/medium: high-fidelity tactile material texture, handcrafted wooden toy aesthetic, no photography.
+Composition/framing: seamless tile with no obvious repeat, uniform density edge-to-edge; target at least 1024 x 1024 px.
+Lighting/mood: diffuse even warm light, minimal directional shading.
+Color palette: pale beech base #DBBF94 with warm #986525 grain and very subtle cream highlights.
+Materials/textures: visible but quiet carved wood grain, softly worn painted surface.
+Constraints: opaque reusable texture; no text, labels, logos, watermark, people, vehicles, homes, card frame, browser chrome, or hard horizon.
+Avoid: photoreal lumber, heavy knots, high contrast stripes, glossy plastic, checkerboard, 3D object.

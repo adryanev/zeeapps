@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: full-screen reusable background layer for a Phaser 2.5D toddler game
+Input image: the provided approved follow-the-vehicle comp is a style and material reference only; preserve its handcrafted painted beech wood, felt terrain, warm daylight, low close camera, palette, rounded construction, and craft quality, but do not copy its vehicle or layout.
+Primary request: a clean wide background plate of a handcrafted painted beech wooden play table for Depot Tenang. The layer must fill a 16:9 game viewport and remain useful behind independently composited vehicles and homes.
+Scene/backdrop: warm daylight on a long toy table; full-height diorama surface, with shallow depth from foreground beech rails to distant felt hills.
+Subject: painted beech table top, rounded carved wooden route rails, broad muted felt terrain in olive green, sparse rounded felt hills and bushes, quiet distant railway and runway lanes along the edges; leave the central road and vehicle zones visually calm enough for later layering.
+Style/medium: high-fidelity handcrafted painted wooden toy diorama, tactile matte felt and lightly varnished beech, 2.5D illustration, no photography.
+Composition/framing: edge-to-edge landscape 16:9, no empty lower half, layered depth, broad open center and foreground surfaces for separate road and vehicle layers; no large standalone vehicles, homes, status pegs, or text.
+Lighting/mood: soft warm daylight, gentle contact occlusion, calm inviting playroom mood.
+Color palette: ground wood #986525 and #917657, pale beech #DBBF94, felt #6D894F with #4A4C29 shadows, subtle coral #BE5A25 and gold #D8AF4A accents only in tiny scenery.
+Materials/textures: visible painted beech grain, carved grooves and inset seams, fuzzy felt hills, matte toy-table finish, soft short shadows.
+Constraints: reusable image-native layer; no UI, labels, route markings, dashboard, people, faces, logos, watermark, or browser chrome; do not bake a prominent vehicle or home into the plate; preserve clean edges.
+Avoid: photoreal room, thin horizontal strip layout, equal horizontal bands, oversaturated neon, glossy plastic, action blur.

@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent reusable environment cutout for a Phaser 2.5D toddler game
+Input image: the provided approved follow-the-vehicle comp is a style and material reference only; match its painted beech, felt, rounded construction, warm daylight, and low close toy-diorama craft. Do not copy the room or crop.
+Primary request: one standalone friendly airplane hangar / Resting Place cutout for Depot Tenang, viewed from the same low three-quarter side angle as the approved comp.
+Scene/backdrop: none; genuinely transparent background around the object.
+Subject: a chunky handcrafted painted beech hangar with a rounded golden-yellow arch roof, pale beech timber doorway and side posts, a warm dark open bay interior, and one small carved circular wooden detail. The full building must be visible and cleanly separated.
+Style/medium: high-fidelity hand-painted wooden toy illustration, tactile beech grain and subtle matte painted surfaces, 2.5D object render, no photography.
+Composition/framing: centered standalone object, three-quarter side view, full silhouette visible with generous transparent breathing room; size target at least 900 px on the long edge; no ground plane.
+Lighting/mood: warm soft daylight from upper left, subtle edge highlights and gentle internal occlusion only.
+Color palette: pale beech #DBBF94, golden accent #D8AF4A, dark contact #25230C, warm wood #986525.
+Materials/textures: carved beech grain, rounded 18 to 28 px visual profiles, inset seams, hand-painted toy finish.
+Constraints: true transparent background with clean anti-aliased alpha; reusable independent layer; no baked CSS border, no card frame, no labels or text, no runway, no airplane, no people, no faces, no logo, no watermark, no cast shadow.
+Avoid: photoreal architecture, flat icon, glossy plastic, harsh black outline, cropped roof or posts, letterboxing.

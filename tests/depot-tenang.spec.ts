@@ -592,15 +592,16 @@ test.describe("Depot Tenang", () => {
     });
     await page.clock.install();
     await page.clock.runFor(2_000);
+    await page.clock.resume();
 
     const airplane = {
-      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.5,
-      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.28,
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.36,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.31,
     };
     await page.mouse.move(airplane.x, airplane.y);
     await page.mouse.down();
+    await expect(page.getByTestId("game-status")).toHaveText("Pesawat bergerak perlahan");
     await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
-
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali perlahan", {
       timeout: 3_000,
     });
@@ -626,10 +627,11 @@ test.describe("Depot Tenang", () => {
     });
     await page.clock.install();
     await page.clock.runFor(2_000);
+    await page.clock.resume();
 
     const airplane = {
-      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.5,
-      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.35,
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.36,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.31,
     };
     await page.mouse.move(airplane.x, airplane.y);
     await page.mouse.down();

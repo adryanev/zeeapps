@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: transparent independently composited vehicle body for a Phaser 2.5D toddler game
+Input image: the provided approved follow-the-vehicle comp is a style and material reference only; preserve its chunky painted wood, low close three-quarter side view, rounded edges, warm daylight, tactile grain, and palette. Do not copy the full scene.
+Primary request: a standalone active wooden delivery truck body for Depot Tenang, with the wheels intentionally omitted so separate wheel sprites can animate underneath.
+Scene/backdrop: none; genuinely transparent background around the vehicle.
+Subject: chunky toy delivery truck body in a low three-quarter side view facing right; deep teal painted cab, warm coral-red wooden cargo bed, two pale beech toy crates secured in the bed, pale cream front window panel with no reflection text, simple gold circular headlights, dark bumper, and two clean rounded wheel arches with empty transparent openings. The body silhouette must be complete from bumper to rear bed.
+Style/medium: high-fidelity hand-painted wooden toy illustration, tactile carved beech grain, soft matte paint, 2.5D game sprite, no photography.
+Composition/framing: centered standalone body, full silhouette visible with transparent breathing room; target at least 1200 px wide; no road, no ground, no attached tires, no cast shadow.
+Lighting/mood: warm soft daylight from upper left, subtle object shading and internal occlusion only.
+Color palette: teal #35695D, coral #BE5A25, pale beech #DBBF94, gold #D8AF4A, dark bumper #25230C.
+Materials/textures: rounded painted wood profiles, tiny carved seam lines, softly worn toy finish, readable chunky shapes at toddler scale.
+Constraints: true transparent background with clean anti-aliased alpha; reusable independent layer; wheels must be absent and wheel openings unobstructed for separate animated wheel assets; no labels, text, logos, watermark, people, faces, UI, speed blur, or card frame.
+Avoid: photoreal truck, glossy plastic, harsh black outline, cropped cab or cargo bed, letterboxing, visible checkerboard.

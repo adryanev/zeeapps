@@ -1,0 +1,14 @@
+{
+  "approved": true,
+  "approvedAt": "2026-08-26",
+  "direction": "wooden-play-table",
+  "composition": "follow-the-vehicle",
+  "promptFile": "follow-the-vehicle.prompt.txt",
+  "notes": [
+    "Keep the low close camera and large active vehicle.",
+    "Keep resting vehicles visible but visually quiet.",
+    "Use the full viewport height without an empty lower field.",
+    "Do not literalize the photographed room beyond warm daylight and material depth.",
+    "Reduced Motion removes camera travel while preserving the same journey."
+  ]
+}
