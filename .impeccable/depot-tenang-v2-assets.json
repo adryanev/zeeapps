@@ -1,9 +1,9 @@
 {
-  "title": "Depot Tenang v2 production asset inventory",
+  "title": "Depot Tenang v2 modular production asset inventory",
   "approved_comp": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
   "direction": "wooden-play-table / follow-the-vehicle",
-  "generated_at": "2026-08-26",
-  "origin_policy": "All produce rasters were generated with the built-in OpenAI image_gen tool using the approved comp as a style/material reference. Exact prompts are recorded in the referenced sidecars and embedded in each PNG as an impeccable:prompt tEXt chunk.",
+  "generated_at": "2026-08-27",
+  "origin_policy": "All produce rasters were generated with the built-in OpenAI image_gen tool using the approved comp or prior asset as a style/material reference. Prompts are recorded in the referenced sidecars; new modular assets received mechanical alpha-threshold cleanup and trimming.",
   "produce": [
     {
       "id": "table-felt-background",
@@ -56,25 +56,49 @@
     {
       "id": "truck-body",
       "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
-      "output_path": "public/assets/depot-tenang-v2/truck-body.png",
-      "strategy": "transparent vehicle body regeneration with empty wheel wells",
-      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/truck-body.txt",
-      "dimensions": "512x275",
+      "output_path": "public/assets/depot-tenang-v2/truck-body-sol.png",
+      "strategy": "Sol-directed modular regeneration with an empty cargo bed and empty wheel wells",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/truck-body-sol.txt",
+      "dimensions": "1024x474",
       "format": "PNG",
       "transparency": "true RGBA alpha",
-      "deviations": "Wheels and ground shadow intentionally omitted for independent animation/layering.",
+      "deviations": "Cargo, wheels, and ground shadow intentionally omitted for independent physics and layering.",
       "qa_status": "accepted"
     },
     {
-      "id": "train-body",
+      "id": "cargo-crate",
       "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
-      "output_path": "public/assets/depot-tenang-v2/train-body.png",
-      "strategy": "transparent vehicle body regeneration with empty wheel arches",
-      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/train-body.txt",
-      "dimensions": "512x197",
+      "output_path": "public/assets/depot-tenang-v2/cargo-crate-sol.png",
+      "strategy": "Sol-directed modular regeneration with alpha cleanup and trimmed bounds",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/cargo-crate-sol.txt",
+      "dimensions": "505x512",
       "format": "PNG",
       "transparency": "true RGBA alpha",
-      "deviations": "Rails, wheels, and ground shadow intentionally omitted for independent layering.",
+      "deviations": "One reusable crate is tinted and duplicated by Phaser.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "train-locomotive",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/train-locomotive-sol.png",
+      "strategy": "Sol-directed modular locomotive regeneration with empty wheel arches",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/train-locomotive-sol.txt",
+      "dimensions": "768x517",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "Passenger carriages, wheels, rails, and ground shadow intentionally omitted.",
+      "qa_status": "accepted"
+    },
+    {
+      "id": "train-carriage",
+      "source_crop": ".impeccable/mocks/wooden-compositions/follow-the-vehicle.png",
+      "output_path": "public/assets/depot-tenang-v2/train-carriage-sol.png",
+      "strategy": "Sol-directed modular passenger-carriage regeneration with empty wheel arches",
+      "prompt_used": ".impeccable/asset-prompts/depot-tenang-v2/train-carriage-sol.txt",
+      "dimensions": "768x449",
+      "format": "PNG",
+      "transparency": "true RGBA alpha",
+      "deviations": "One reusable carriage is tinted and duplicated by Phaser; wheels and ground shadow remain separate.",
       "qa_status": "accepted"
     },
     {
@@ -211,7 +235,7 @@
     "Load depot-tenang-table-felt-bg as the depth plate.",
     "Mask asphalt-road-texture and beech-wood-texture into the Phaser route geometry; use felt-terrain-texture for additional terrain fill.",
     "Place garage-cutout, station-cutout, and hangar-cutout in quiet depth planes with contact-shadow beneath each.",
-    "Compose vehicle bodies with wheel-sprite/propeller-sprite as independent children and preserve empty wheel wells/nose hub where supplied.",
+    "Compose truck-body-sol, train-locomotive-sol, and train-carriage-sol with wheel-sprite as independent children; compose airplane-body with propeller-sprite.",
     "Add contact-shadow and dust-puff under/behind the Active Vehicle; tune journey lean, rotation, recovery, camera easing, and Reduced Motion in code."
   ],
   "blockers": [],
@@ -219,6 +243,6 @@
     "PNG is retained for alpha fidelity and prompt tEXt metadata; no optimizer should strip source metadata before handoff.",
     "The generated material swatches are used as masked/tiled ingredients, not as full-screen replacements.",
     "Airplane landing wheels are acceptable as static body detail; parent may request a regenerated body if wheel animation is required there too.",
-    "No TypeScript, CSS, tests, package files, PRODUCT.md, or approved comp were edited by this asset pass."
+    "TypeScript geometry owns vehicle dimensions, wheel anchors, cargo-bed slots, collision filters, and camera zoom; raster dimensions are presentation-only."
   ]
 }

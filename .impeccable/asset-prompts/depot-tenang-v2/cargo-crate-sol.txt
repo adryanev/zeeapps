@@ -1,0 +1,4 @@
+Use case: stylized-concept
+Asset type: modular 2.5D wooden toy cargo sprite
+Primary request: one compact beech-wood cargo crate with rounded corners and crossed braces.
+Constraints: genuine transparent alpha; exactly one crate; no background, glow, shadow, scenery, truck, text, logo, or watermark.

@@ -1,0 +1,5 @@
+Use case: stylized-concept
+Asset type: modular 2.5D wooden toy passenger carriage sprite
+Input image: current train as the exact visual-style reference
+Primary request: one mustard passenger carriage with three windows and a teal chassis, with empty wheel arches.
+Constraints: genuine transparent alpha; no locomotive, other carriage, wheels, track, scenery, text, logo, or watermark.

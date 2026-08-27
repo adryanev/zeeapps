@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { DepotTenangFeedback, DepotTenangState } from "./depotTenangTypes";
 import { stepGuidedMotion, type GuidedMotionProfile } from "./guidedPhysics";
+import { TRUCK_GEOMETRY } from "./vehicleGeometry";
 
 export type { DepotTenangFeedback, DepotTenangState } from "./depotTenangTypes";
 
@@ -27,13 +28,17 @@ type DepotTenangCallbacks = {
 };
 
 const WORLD_WIDTH = 960;
-const WORLD_HEIGHT = 540;
 const ROAD_Y = 394;
-const TRUCK_WIDTH = 138;
-const TRUCK_HEIGHT = 52;
+const TRUCK_WIDTH = TRUCK_GEOMETRY.bodyWidth;
+const TRUCK_HEIGHT = TRUCK_GEOMETRY.bodyHeight;
+const TRUCK_SPRITE_WIDTH = TRUCK_GEOMETRY.spriteWidth;
+const TRUCK_SPRITE_HEIGHT = TRUCK_GEOMETRY.spriteHeight;
+const TRUCK_WHEEL_RADIUS = TRUCK_GEOMETRY.wheelRadius;
+const TRUCK_WHEEL_OFFSETS = TRUCK_GEOMETRY.wheelOffsets;
+const TRUCK_CARGO_OFFSETS = TRUCK_GEOMETRY.cargoOffsets;
 const TRUCK_MAX_SPEED = 6.4;
-const CARGO_WIDTH = 34;
-const CARGO_HEIGHT = 28;
+const CARGO_WIDTH = TRUCK_GEOMETRY.cargoWidth;
+const CARGO_HEIGHT = TRUCK_GEOMETRY.cargoHeight;
 const CARGO_MAX_SPEED = 7;
 const CARGO_MAX_ANGULAR_SPEED = 0.14;
 const CARGO_GRAB_RADIUS = 68;
@@ -41,18 +46,18 @@ const TRUCK_ARRIVAL_RATIO = 0.42;
 const TRUCK_START_RATIO = 0.14;
 const TRAIN_ARRIVAL_RATIO = 0.53;
 const TRAIN_START_RATIO = 0.82;
-const TRAIN_WIDTH = 92;
-const TRAIN_HEIGHT = 34;
-const TRAIN_CARRIAGE_WIDTH = 70;
-const TRAIN_CARRIAGE_HEIGHT = 30;
-const TRAIN_CARRIAGE_GAP = 82;
+const TRAIN_WIDTH = 150;
+const TRAIN_HEIGHT = 50;
+const TRAIN_CARRIAGE_WIDTH = 122;
+const TRAIN_CARRIAGE_HEIGHT = 48;
+const TRAIN_CARRIAGE_GAP = 138;
 const TRAIN_SPEED = 5.2;
 const TRAIN_MAX_SPEED = 6.2;
 const TRAIN_MAX_ANGULAR_SPEED = 0.07;
 const TRAIN_GRAB_RADIUS = 72;
 const TRAIN_TRACK_MARGIN = 84;
-const AIRPLANE_WIDTH = 112;
-const AIRPLANE_HEIGHT = 42;
+const AIRPLANE_WIDTH = 196;
+const AIRPLANE_HEIGHT = 72;
 const AIRPLANE_SPEED = 3.8;
 const AIRPLANE_FLIGHT_SPEED = 3.2;
 const AIRPLANE_MAX_SPEED = 5;
@@ -149,7 +154,9 @@ const ROUTE_SURFACE_KEY = "depot-tenang-route-surface";
 const TABLE_BACKGROUND_URL = `${import.meta.env.BASE_URL}assets/depot-tenang-v2/depot-tenang-table-felt-bg.png`;
 const RASTER_TEXTURES = {
   truck: "depot-tenang-truck-body",
-  train: "depot-tenang-train-body",
+  cargo: "depot-tenang-cargo-crate",
+  trainLocomotive: "depot-tenang-train-locomotive",
+  trainCarriage: "depot-tenang-train-carriage",
   airplane: "depot-tenang-airplane-body",
   garage: "depot-tenang-garage",
   station: "depot-tenang-station",
@@ -163,8 +170,10 @@ const RASTER_TEXTURES = {
   felt: "depot-tenang-felt",
 } as const;
 const RASTER_TEXTURE_URLS: Record<(typeof RASTER_TEXTURES)[keyof typeof RASTER_TEXTURES], string> = {
-  [RASTER_TEXTURES.truck]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-body.png`,
-  [RASTER_TEXTURES.train]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/train-body.png`,
+  [RASTER_TEXTURES.truck]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-body-sol.png`,
+  [RASTER_TEXTURES.cargo]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/cargo-crate-sol.png`,
+  [RASTER_TEXTURES.trainLocomotive]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/train-locomotive-sol.png`,
+  [RASTER_TEXTURES.trainCarriage]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/train-carriage-sol.png`,
   [RASTER_TEXTURES.airplane]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/airplane-body.png`,
   [RASTER_TEXTURES.garage]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/garage-cutout.png`,
   [RASTER_TEXTURES.station]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/station-cutout.png`,
@@ -243,7 +252,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private trainConstraints: MatterJS.ConstraintType[] = [];
   private trainSwayFeedbackShown = false;
   private cargoBodies: MatterJS.BodyType[] = [];
-  private cargoVisuals = new Map<MatterJS.BodyType, Phaser.GameObjects.Rectangle>();
+  private cargoVisuals = new Map<MatterJS.BodyType, Phaser.GameObjects.Image>();
   private cargoRecoveryTargets = new Map<MatterJS.BodyType, { x: number; y: number }>();
   private truckPhase: DepotTenangState = "ready";
   private trainPhase: TrainPhase = "ready";
@@ -292,6 +301,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private visualClock = 0;
   private cameraFollowX = 0;
   private cameraFollowY = 0;
+  private cameraZoom = 1;
   private cameraOverscanX = 32;
   private cameraOverscanY = 18;
 
@@ -427,13 +437,11 @@ export class DepotTenangScene extends Phaser.Scene {
       this.truckSettleVelocity = 0;
     }
 
-    const anticipationLean = this.reducedMotion ? -0.018 : -0.045;
-    const squash = 1 - anticipationRatio * (this.reducedMotion ? 0.025 : 0.06);
-    const activeScale = this.activeVehicle === "truck" ? this.getActiveVehicleVisualScale() : 0.82;
+    const anticipationLean = this.reducedMotion ? -0.012 : -0.028;
     this.truckVisual
       .setPosition(this.truckBody.position.x, this.truckBody.position.y + this.truckSettleOffset)
       .setRotation(this.truckBody.angle * (this.reducedMotion ? 0.08 : 0.16) + anticipationLean * anticipationRatio)
-      .setScale(activeScale, activeScale * squash);
+      .setScale(1);
     this.truckVisual.setAlpha(this.activeVehicle === "truck" ? 1 : 0.72);
 
     for (const wheel of this.truckWheelVisuals) {
@@ -483,43 +491,54 @@ export class DepotTenangScene extends Phaser.Scene {
     const height = this.getWorldHeight();
     const viewportWidth = this.scale.width;
     const viewportHeight = this.scale.height;
+    const truckCameraActive =
+      this.activeVehicle === "truck" &&
+      (this.truckPhase === "moving" || this.truckPhase === "returning");
+    const trainCameraActive =
+      this.activeVehicle === "train" &&
+      (this.trainPhase === "moving" || this.trainPhase === "returning");
+    const activeBody = truckCameraActive
+      ? this.truckBody
+      : trainCameraActive
+        ? this.trainBody
+        : this.activeVehicle === "airplane" && this.isAirplaneJourneyActive()
+          ? this.airplaneBody
+          : undefined;
+    const focusZoom = this.clamp(viewportWidth / 1_300, 1, 1.16);
+    const targetZoom = !this.reducedMotion && activeBody ? focusZoom : 1;
+    const visibleWidth = viewportWidth / targetZoom;
+    const visibleHeight = viewportHeight / targetZoom;
     let targetX = 0;
     let targetY = 0;
-    const activeBody =
-      this.activeVehicle === "truck" && (this.truckPhase === "moving" || this.truckPhase === "returning")
-        ? this.truckBody
-        : this.activeVehicle === "train" && (this.trainPhase === "moving" || this.trainPhase === "returning")
-          ? this.trainBody
-          : this.activeVehicle === "airplane" && this.isAirplaneJourneyActive()
-            ? this.airplaneBody
-            : undefined;
 
     if (!this.reducedMotion && activeBody) {
       const verticalFocusRatio =
         this.activeVehicle === "airplane" ? 0.32 : viewportHeight < 480 ? 0.4 : 0.52;
       targetX = this.clamp(
-        activeBody.position.x - viewportWidth * 0.36,
+        activeBody.position.x - visibleWidth * 0.36,
         -this.cameraOverscanX,
-        Math.max(this.cameraOverscanX, width - viewportWidth + this.cameraOverscanX),
+        Math.max(this.cameraOverscanX, width - visibleWidth + this.cameraOverscanX),
       );
       targetY = this.clamp(
-        activeBody.position.y - viewportHeight * verticalFocusRatio,
+        activeBody.position.y - visibleHeight * verticalFocusRatio,
         -this.cameraOverscanY,
-        Math.max(this.cameraOverscanY, height - viewportHeight + this.cameraOverscanY),
+        Math.max(this.cameraOverscanY, height - visibleHeight + this.cameraOverscanY),
       );
     }
 
     if (!activeBody || this.reducedMotion) {
       this.cameraFollowX = targetX;
       this.cameraFollowY = targetY;
-      camera.setScroll(this.cameraFollowX, this.cameraFollowY);
+      this.cameraZoom = targetZoom;
+      camera.setZoom(this.cameraZoom).setScroll(this.cameraFollowX, this.cameraFollowY);
       return;
     }
 
-    const easing = this.reducedMotion ? 1 : 1 - Math.pow(0.9, deltaMs / 16.67);
+    const easing = 1 - Math.pow(0.9, deltaMs / 16.67);
     this.cameraFollowX += (targetX - this.cameraFollowX) * easing;
     this.cameraFollowY += (targetY - this.cameraFollowY) * easing;
-    camera.setScroll(this.cameraFollowX, this.cameraFollowY);
+    this.cameraZoom += (targetZoom - this.cameraZoom) * easing;
+    camera.setZoom(this.cameraZoom).setScroll(this.cameraFollowX, this.cameraFollowY);
   }
 
   private updateTruckJourneyMovement(deltaMs: number): boolean {
@@ -582,7 +601,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private createMatterBounds(): void {
     const ground = this.matter.add.rectangle(
       this.getWorldWidth() / 2,
-      ROAD_Y + 20,
+      this.getRoadY() + 20,
       this.getWorldWidth(),
       40,
       {
@@ -635,7 +654,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private createTruck(): void {
     const startingPoint = this.getTruckStartingPoint();
     this.truckBody = this.matter.add.rectangle(startingPoint.x, startingPoint.y, TRUCK_WIDTH, TRUCK_HEIGHT, {
-      chamfer: { radius: 8 },
+      chamfer: { radius: 14 },
       density: 0.001,
       friction: 0,
       frictionAir: 0.03,
@@ -646,20 +665,24 @@ export class DepotTenangScene extends Phaser.Scene {
 
     this.truckVisual = this.add.container(startingPoint.x, startingPoint.y);
     this.truckVisual.setDepth(10);
-    const rearWheel = this.createWheelVisual(18);
-    const frontWheel = this.createWheelVisual(18);
-    rearWheel.setPosition(-66, 40);
-    frontWheel.setPosition(66, 40);
-    this.truckWheelVisuals = [rearWheel, frontWheel];
-    const bodyImage = this.createRasterImage(RASTER_TEXTURES.truck, 282, 151);
-    bodyImage.setPosition(0, -5);
-    const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 236, 33);
-    contactShadow.setPosition(-4, 50).setAlpha(0.6);
+    const wheelVisuals = TRUCK_WHEEL_OFFSETS.map((offset) => {
+      const wheel = this.createWheelVisual(TRUCK_WHEEL_RADIUS);
+      wheel.setPosition(offset.x, offset.y);
+      return wheel;
+    });
+    this.truckWheelVisuals = wheelVisuals;
+    const bodyImage = this.createRasterImage(
+      RASTER_TEXTURES.truck,
+      TRUCK_SPRITE_WIDTH,
+      TRUCK_SPRITE_HEIGHT,
+    );
+    bodyImage.setPosition(0, -4);
+    const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 216, 29);
+    contactShadow.setPosition(-8, 50).setAlpha(0.52);
     this.truckVisual.add([
       contactShadow,
       bodyImage,
-      rearWheel,
-      frontWheel,
+      ...wheelVisuals,
     ]);
   }
 
@@ -677,7 +700,7 @@ export class DepotTenangScene extends Phaser.Scene {
       TRAIN_WIDTH,
       TRAIN_HEIGHT,
       {
-        chamfer: { radius: 8 },
+        chamfer: { radius: 12 },
         density: 0.001,
         friction: 0,
         frictionAir: 0.03,
@@ -690,14 +713,15 @@ export class DepotTenangScene extends Phaser.Scene {
 
     this.trainVisual = this.add.container(startingPoint.x, startingPoint.y);
     this.trainVisual.setDepth(9);
-    const locomotiveRearWheel = this.createWheelVisual(11);
-    const locomotiveFrontWheel = this.createWheelVisual(11);
-    locomotiveRearWheel.setPosition(-34, 43);
-    locomotiveFrontWheel.setPosition(34, 43);
+    const locomotiveRearWheel = this.createWheelVisual(12);
+    const locomotiveFrontWheel = this.createWheelVisual(12);
+    locomotiveRearWheel.setPosition(-45, 37);
+    locomotiveFrontWheel.setPosition(44, 37);
     this.trainWheelVisuals.set(this.trainVisual, [locomotiveRearWheel, locomotiveFrontWheel]);
-    const bodyImage = this.createRasterImage(RASTER_TEXTURES.train, 330, 127);
-    const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 130, 19);
-    contactShadow.setPosition(0, 50).setAlpha(0.42);
+    const bodyImage = this.createRasterImage(RASTER_TEXTURES.trainLocomotive, 160, 108);
+    bodyImage.setPosition(0, -5);
+    const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 150, 18);
+    contactShadow.setPosition(0, 47).setAlpha(0.38);
     this.trainVisual.add([
       contactShadow,
       bodyImage,
@@ -713,7 +737,7 @@ export class DepotTenangScene extends Phaser.Scene {
         TRAIN_CARRIAGE_WIDTH,
         TRAIN_CARRIAGE_HEIGHT,
         {
-          chamfer: { radius: 7 },
+          chamfer: { radius: 10 },
           density: 0.0008,
           friction: 0,
           frictionAir: 0.03,
@@ -732,16 +756,16 @@ export class DepotTenangScene extends Phaser.Scene {
     const [firstCarriage, secondCarriage] = this.trainCarriageBodies;
     if (firstCarriage) {
       this.trainConstraints.push(
-        this.matter.add.constraint(this.trainBody, firstCarriage, TRAIN_CARRIAGE_GAP, 0.14, {
-          damping: 0.16,
+        this.matter.add.constraint(this.trainBody, firstCarriage, TRAIN_CARRIAGE_GAP, 0.2, {
+          damping: 0.22,
           label: "train-locomotive-constraint",
         }),
       );
     }
     if (firstCarriage && secondCarriage) {
       this.trainConstraints.push(
-        this.matter.add.constraint(firstCarriage, secondCarriage, TRAIN_CARRIAGE_GAP, 0.14, {
-          damping: 0.16,
+        this.matter.add.constraint(firstCarriage, secondCarriage, TRAIN_CARRIAGE_GAP, 0.2, {
+          damping: 0.22,
           label: "train-carriage-constraint",
         }),
       );
@@ -787,42 +811,44 @@ export class DepotTenangScene extends Phaser.Scene {
     return propeller;
   }
 
-  private createTrainCarriageVisual(_index: number): Phaser.GameObjects.Container {
+  private createTrainCarriageVisual(index: number): Phaser.GameObjects.Container {
     const visual = this.add.container(0, 0);
     visual.setDepth(9);
-    const rearWheel = this.createWheelVisual(9);
-    const frontWheel = this.createWheelVisual(9);
-    rearWheel.setPosition(-22, 43);
-    frontWheel.setPosition(22, 43);
+    const rearWheel = this.createWheelVisual(10);
+    const frontWheel = this.createWheelVisual(10);
+    rearWheel.setPosition(-40, 29);
+    frontWheel.setPosition(40, 29);
     this.trainWheelVisuals.set(visual, [rearWheel, frontWheel]);
-    const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 88, 13);
-    contactShadow.setPosition(0, 50).setAlpha(0.34);
-    visual.add([contactShadow, rearWheel, frontWheel]);
+    const bodyImage = this.createRasterImage(RASTER_TEXTURES.trainCarriage, 134, 78);
+    bodyImage.setPosition(0, -4);
+    if (index === 1) {
+      bodyImage.setTint(0xf1c77d);
+    }
+    const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 116, 14);
+    contactShadow.setPosition(0, 39).setAlpha(0.32);
+    visual.add([contactShadow, bodyImage, rearWheel, frontWheel]);
     return visual;
   }
 
   private createCargo(): void {
     this.clearCargo();
 
-    const arrivalPoint = this.getTruckArrivalPoint();
-    const cargoDefinitions = [
-      { x: arrivalPoint.x - 26, y: ROAD_Y - 108, color: 0xe7b75b },
-      { x: arrivalPoint.x + 14, y: ROAD_Y - 108, color: 0x7ba8a3 },
-      { x: arrivalPoint.x - 6, y: ROAD_Y - 150, color: 0xd77a61 },
-    ];
-
-    for (const [index, definition] of cargoDefinitions.entries()) {
-      const body = this.matter.add.rectangle(definition.x, definition.y, CARGO_WIDTH, CARGO_HEIGHT, {
-        chamfer: { radius: 5 },
+    for (const [index] of TRUCK_CARGO_OFFSETS.entries()) {
+      const position = this.getLoadedCargoPosition(index);
+      const body = this.matter.add.rectangle(position.x, position.y, CARGO_WIDTH, CARGO_HEIGHT, {
+        chamfer: { radius: 6 },
         density: 0.001,
-        friction: 0.2,
-        frictionAir: 0.08,
-        restitution: 0.05,
+        friction: 0.18,
+        frictionAir: 0.1,
+        restitution: 0.04,
+        ignoreGravity: true,
+        collisionFilter: { mask: 0 },
         label: `truck-cargo-${index + 1}`,
       });
-      const visual = this.add.rectangle(0, 0, CARGO_WIDTH, CARGO_HEIGHT, definition.color);
-      visual.setStrokeStyle(3, COLORS.ink, 0.55);
-      visual.setDepth(11);
+      const visual = this.createRasterImage(RASTER_TEXTURES.cargo, CARGO_WIDTH + 6, CARGO_HEIGHT + 6);
+      visual.setDepth(9.8);
+      visual.setTint(index === 1 ? 0xf0cf8f : index === 2 ? 0xdfaa65 : 0xffffff);
+      visual.setPosition(position.x, position.y);
       this.cargoBodies.push(body);
       this.cargoVisuals.set(body, visual);
     }
@@ -835,7 +861,7 @@ export class DepotTenangScene extends Phaser.Scene {
 
     const width = this.getWorldWidth();
     const height = this.getWorldHeight();
-    const roadY = Math.min(ROAD_Y, height * 0.75);
+    const roadY = this.getRoadY(height);
     const railY = roadY - 96;
     this.cameraOverscanX = Math.max(96, width * 0.24);
     this.cameraOverscanY = Math.max(24, height * 0.12);
@@ -1655,11 +1681,10 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    const activeScale = this.activeVehicle === "airplane" ? this.getActiveVehicleVisualScale() : 0.78;
     this.airplaneVisual
       .setPosition(this.airplaneBody.position.x, this.airplaneBody.position.y)
       .setRotation(this.airplaneBody.angle * (this.reducedMotion ? 0.35 : 1))
-      .setScale(activeScale);
+      .setScale(1);
     this.airplaneVisual.setAlpha(this.activeVehicle === "airplane" ? 1 : 0.66);
     if (this.airplanePropeller && !this.reducedMotion) {
       const speed = Math.max(0.25, Math.hypot(this.airplaneBody.velocity.x, this.airplaneBody.velocity.y));
@@ -1812,7 +1837,10 @@ export class DepotTenangScene extends Phaser.Scene {
     const minX = width * AIRPLANE_FLIGHT_MIN_X_RATIO;
     const maxX = width * AIRPLANE_FLIGHT_MAX_X_RATIO;
     const minY = height * AIRPLANE_FLIGHT_MIN_Y_RATIO;
-    const maxY = Math.min(height * AIRPLANE_FLIGHT_MAX_Y_RATIO, ROAD_Y - AIRPLANE_HEIGHT);
+    const maxY = Math.min(
+      height * AIRPLANE_FLIGHT_MAX_Y_RATIO,
+      this.getRoadY(height) - AIRPLANE_HEIGHT,
+    );
     return { minX, maxX, minY, maxY };
   }
 
@@ -2055,7 +2083,7 @@ export class DepotTenangScene extends Phaser.Scene {
   }
 
   private isAtTruckRestingPlace(x: number, y: number): boolean {
-    const roadY = Math.min(ROAD_Y, this.getWorldHeight() * 0.75);
+    const roadY = this.getRoadY();
     const restingPlace = {
       x: this.getWorldWidth() * TRUCK_START_RATIO,
       y: roadY - 58,
@@ -2628,11 +2656,10 @@ export class DepotTenangScene extends Phaser.Scene {
 
   private updateTrainVisuals(deltaMs: number): void {
     if (this.trainBody) {
-      const activeScale = this.activeVehicle === "train" ? this.getActiveVehicleVisualScale() : 0.78;
       this.trainVisual
         ?.setPosition(this.trainBody.position.x, this.trainBody.position.y)
         .setRotation(this.trainBody.angle * (this.reducedMotion ? 0.08 : 0.2))
-        .setScale(activeScale)
+        .setScale(1)
         .setAlpha(this.activeVehicle === "train" ? 1 : 0.68);
       const speed = this.trainBody.velocity.x;
       const frameScale = deltaMs / 16.67;
@@ -2648,7 +2675,7 @@ export class DepotTenangScene extends Phaser.Scene {
         .get(carriage)
         ?.setPosition(carriage.position.x, carriage.position.y)
         .setRotation(carriage.angle * (this.reducedMotion ? 0.15 : 0.45))
-        .setScale(this.activeVehicle === "train" ? this.getActiveVehicleVisualScale() : 0.78)
+        .setScale(1)
         .setAlpha(this.activeVehicle === "train" ? 0.98 : 0.64);
       const speed = carriage.velocity.x;
       const frameScale = deltaMs / 16.67;
@@ -2696,18 +2723,8 @@ export class DepotTenangScene extends Phaser.Scene {
       return;
     }
 
-    const cargoOffsets = [
-      { x: -22, y: -40 },
-      { x: 22, y: -40 },
-      { x: 0, y: -68 },
-    ];
-
     for (const [index, cargo] of this.cargoBodies.entries()) {
-      const offset = cargoOffsets[index] ?? cargoOffsets[0];
-      const target = {
-        x: this.truckBody.position.x + offset.x,
-        y: this.truckBody.position.y + offset.y,
-      };
+      const target = this.getLoadedCargoPosition(index);
       const step = stepGuidedMotion(
         {
           position: cargo.position,
@@ -2740,7 +2757,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private getTruckArrivalPoint(): { x: number; y: number } {
     return {
       x: this.getWorldWidth() * TRUCK_ARRIVAL_RATIO,
-      y: ROAD_Y - TRUCK_HEIGHT / 2,
+      y: this.getRoadY() - TRUCK_HEIGHT / 2,
     };
   }
 
@@ -2755,18 +2772,17 @@ export class DepotTenangScene extends Phaser.Scene {
     return Math.max(this.scale.width, WORLD_WIDTH);
   }
 
+  private getRoadY(height = this.getWorldHeight()): number {
+    return Math.min(ROAD_Y, height * 0.75);
+  }
+
   private getWorldHeight(): number {
-    return Math.max(this.scale.height, WORLD_HEIGHT);
+    return Math.max(this.scale.height, 280);
   }
-
-  private getActiveVehicleVisualScale(): number {
-    return this.clamp(1 + (this.getWorldWidth() - WORLD_WIDTH) / 1_150, 1, 1.62);
-  }
-
   private getTruckStartingPoint(): { x: number; y: number } {
     return {
       x: this.getWorldWidth() * TRUCK_START_RATIO,
-      y: ROAD_Y - TRUCK_HEIGHT / 2,
+      y: this.getRoadY() - TRUCK_HEIGHT / 2,
     };
   }
 
@@ -2778,7 +2794,7 @@ export class DepotTenangScene extends Phaser.Scene {
   }
 
   private getTrainRailY(): number {
-    const roadY = Math.min(ROAD_Y, this.getWorldHeight() * 0.75);
+    const roadY = this.getRoadY();
     return roadY - 96 + 23;
   }
 
@@ -2789,14 +2805,17 @@ export class DepotTenangScene extends Phaser.Scene {
     };
   }
 
+  private getLoadedCargoPosition(index: number): { x: number; y: number } {
+    const truckPosition = this.truckBody?.position ?? this.getTruckArrivalPoint();
+    const offset = TRUCK_CARGO_OFFSETS[index] ?? TRUCK_CARGO_OFFSETS[0];
+    return {
+      x: truckPosition.x + offset.x,
+      y: truckPosition.y + offset.y,
+    };
+  }
+
   private getSafeCargoPosition(index: number): { x: number; y: number } {
-    const arrivalPoint = this.getTruckArrivalPoint();
-    const safePositions = [
-      { x: arrivalPoint.x - 22, y: arrivalPoint.y - 40 },
-      { x: arrivalPoint.x + 22, y: arrivalPoint.y - 40 },
-      { x: arrivalPoint.x, y: arrivalPoint.y - 68 },
-    ];
-    return safePositions[index] ?? safePositions[0];
+    return this.getLoadedCargoPosition(index);
   }
 
   private clamp(value: number, minimum: number, maximum: number): number {

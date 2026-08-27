@@ -1,0 +1,5 @@
+Use case: stylized-concept
+Asset type: modular 2.5D wooden toy locomotive sprite
+Input image: current train as the exact visual-style reference
+Primary request: isolate and rebuild one teal, coral-red, and gold locomotive with empty wheel arches.
+Constraints: genuine transparent alpha; no carriages, wheels, track, scenery, text, logo, or watermark.

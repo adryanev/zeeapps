@@ -1,0 +1,5 @@
+Use case: stylized-concept
+Asset type: modular 2.5D wooden toy game sprite
+Input image: current truck body as the exact visual-style reference
+Primary request: a clean side-view teal wooden toy pickup truck body with an empty coral-red cargo bed and empty wheel arches.
+Constraints: genuine transparent alpha; exactly one truck; no cargo, wheels, scenery, road, text, logo, or watermark.
