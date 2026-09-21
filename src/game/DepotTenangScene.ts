@@ -28,7 +28,7 @@ type DepotTenangCallbacks = {
 };
 
 const WORLD_WIDTH = 960;
-const ROAD_Y = 394;
+const ROAD_Y = 590;
 const TRUCK_WIDTH = TRUCK_GEOMETRY.bodyWidth;
 const TRUCK_HEIGHT = TRUCK_GEOMETRY.bodyHeight;
 const TRUCK_SPRITE_WIDTH = TRUCK_GEOMETRY.spriteWidth;
@@ -144,7 +144,7 @@ const AIRPLANE_FLIGHT_MIN_Y_RATIO = 0.14;
 const AIRPLANE_FLIGHT_MAX_Y_RATIO = 0.56;
 const AIRPLANE_FLIGHT_MIN_X_RATIO = 0.2;
 const AIRPLANE_FLIGHT_MAX_X_RATIO = 0.78;
-const AIRPLANE_HANGAR_Y_RATIO = 0.55;
+const AIRPLANE_HANGAR_Y_RATIO = 0.47;
 const RECOVERY_LOW_MOTION_DISTANCE = 0.75;
 const RECOVERY_TARGET_DISTANCE = 18;
 const RECOVERY_STUCK_TIMEOUT_MS = 1_800;
@@ -154,6 +154,9 @@ const ROUTE_SURFACE_KEY = "depot-tenang-route-surface";
 const TABLE_BACKGROUND_URL = `${import.meta.env.BASE_URL}assets/depot-tenang-v2/depot-tenang-table-felt-bg.png`;
 const RASTER_TEXTURES = {
   truck: "depot-tenang-truck-body",
+  truckTanker: "depot-tenang-truck-tanker-body",
+  truckMixer: "depot-tenang-truck-mixer-body",
+  truckDump: "depot-tenang-truck-dump-body",
   cargo: "depot-tenang-cargo-crate",
   trainLocomotive: "depot-tenang-train-locomotive",
   trainCarriage: "depot-tenang-train-carriage",
@@ -171,6 +174,9 @@ const RASTER_TEXTURES = {
 } as const;
 const RASTER_TEXTURE_URLS: Record<(typeof RASTER_TEXTURES)[keyof typeof RASTER_TEXTURES], string> = {
   [RASTER_TEXTURES.truck]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-body-sol.png`,
+  [RASTER_TEXTURES.truckTanker]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-tanker-body.png`,
+  [RASTER_TEXTURES.truckMixer]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mixer-body.png`,
+  [RASTER_TEXTURES.truckDump]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mining-dump-body.png`,
   [RASTER_TEXTURES.cargo]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/cargo-crate-sol.png`,
   [RASTER_TEXTURES.trainLocomotive]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/train-locomotive-sol.png`,
   [RASTER_TEXTURES.trainCarriage]: `${import.meta.env.BASE_URL}assets/depot-tenang-v2/train-carriage-sol.png`,
@@ -213,7 +219,19 @@ const COLORS = {
   corridor: 0xead3a2,
 };
 
+const TRUCK_VARIANTS: TruckVariant[] = ["cargo", "tanker", "mixer", "dump"];
+const TRUCK_VARIANT_TEXTURES: Record<
+  TruckVariant,
+  (typeof RASTER_TEXTURES)[keyof typeof RASTER_TEXTURES]
+> = {
+  cargo: RASTER_TEXTURES.truck,
+  tanker: RASTER_TEXTURES.truckTanker,
+  mixer: RASTER_TEXTURES.truckMixer,
+  dump: RASTER_TEXTURES.truckDump,
+};
+
 type ActiveVehicle = "none" | "truck" | "train" | "airplane";
+type TruckVariant = "cargo" | "tanker" | "mixer" | "dump";
 type TrainPhase = "ready" | "moving" | "station" | "returning" | "quiet";
 type AirplanePhase = "ready" | "taking-off" | "flying" | "returning" | "quiet" | "recovering";
 type ActivityVehicle = "truck" | "train" | "airplane";
@@ -238,6 +256,7 @@ export class DepotTenangScene extends Phaser.Scene {
   private stationVisual?: Phaser.GameObjects.Image;
   private hangarVisual?: Phaser.GameObjects.Image;
   private truckVisual?: Phaser.GameObjects.Container;
+  private truckBodyImage?: Phaser.GameObjects.Image;
   private truckBody?: MatterJS.BodyType;
   private truckWheelVisuals: Phaser.GameObjects.Container[] = [];
   private truckAnticipationRemaining = 0;
@@ -255,6 +274,8 @@ export class DepotTenangScene extends Phaser.Scene {
   private cargoVisuals = new Map<MatterJS.BodyType, Phaser.GameObjects.Image>();
   private cargoRecoveryTargets = new Map<MatterJS.BodyType, { x: number; y: number }>();
   private truckPhase: DepotTenangState = "ready";
+  private truckVariantIndex = 0;
+  private truckVariantSelectionArmed = false;
   private trainPhase: TrainPhase = "ready";
   private activeVehicle: ActiveVehicle = "none";
   private grabbedCargo?: MatterJS.BodyType;
@@ -671,17 +692,17 @@ export class DepotTenangScene extends Phaser.Scene {
       return wheel;
     });
     this.truckWheelVisuals = wheelVisuals;
-    const bodyImage = this.createRasterImage(
-      RASTER_TEXTURES.truck,
+    this.truckBodyImage = this.createRasterImage(
+      TRUCK_VARIANT_TEXTURES[TRUCK_VARIANTS[this.truckVariantIndex]],
       TRUCK_SPRITE_WIDTH,
       TRUCK_SPRITE_HEIGHT,
     );
-    bodyImage.setPosition(0, -4);
+    this.truckBodyImage.setPosition(0, -4);
     const contactShadow = this.createRasterImage(RASTER_TEXTURES.contactShadow, 216, 29);
     contactShadow.setPosition(-8, 50).setAlpha(0.52);
     this.truckVisual.add([
       contactShadow,
-      bodyImage,
+      this.truckBodyImage,
       ...wheelVisuals,
     ]);
   }
@@ -863,39 +884,26 @@ export class DepotTenangScene extends Phaser.Scene {
     const height = this.getWorldHeight();
     const roadY = this.getRoadY(height);
     const railY = roadY - 96;
-    this.cameraOverscanX = Math.max(96, width * 0.24);
-    this.cameraOverscanY = Math.max(24, height * 0.12);
-    this.tableBackground
-      ?.setPosition(-this.cameraOverscanX, -this.cameraOverscanY)
-      .setDisplaySize(width + this.cameraOverscanX * 2, height + this.cameraOverscanY * 2)
-      .setDepth(-20);
-    this.cameras.main.setBounds(
-      -this.cameraOverscanX,
-      -this.cameraOverscanY,
-      width + this.cameraOverscanX * 2,
-      height + this.cameraOverscanY * 2,
-    );
 
+    // The Blender render already frames the complete board, so keep the
+    // background and camera bounds at the playable world size.
+    this.cameraOverscanX = 0;
+    this.cameraOverscanY = 0;
+    this.tableBackground?.setPosition(0, 0).setDisplaySize(width, height).setDepth(-20);
+    this.cameras.main.setBounds(0, 0, width, height);
+
+    // Keep the legacy layers initialized for compatibility, but the Blender
+    // background now contains the road, railway, scenery, and buildings.
     this.diorama.clear();
     this.layoutTexturedRoute(width, height, roadY);
     this.drawHangar(width * 0.83, railY - 55);
     this.drawStation(width * 0.57, railY - 38);
     this.drawGarage(width * 0.13, roadY - 58);
-
-    const depthScale = this.clamp(0.92 + (width - WORLD_WIDTH) / 5_000, 0.92, 1.06);
-    this.garageVisual
-      ?.setPosition(width * 0.13, roadY + 5)
-      .setDisplaySize(184 * depthScale, 139 * depthScale)
-      .setAlpha(0.76);
-    this.stationVisual
-      ?.setPosition(width * 0.57, railY + 10)
-      .setDisplaySize(166 * depthScale, 132 * depthScale)
-      .setAlpha(0.68);
-    const airplaneHangarPoint = this.getAirplaneHangarPoint();
-    this.hangarVisual
-      ?.setPosition(airplaneHangarPoint.x, airplaneHangarPoint.y + 30)
-      .setDisplaySize(174 * depthScale, 124 * depthScale)
-      .setAlpha(0.68);
+    this.diorama.setVisible(false);
+    this.routeSurfaceVisual?.setVisible(false);
+    this.garageVisual?.setVisible(false);
+    this.stationVisual?.setVisible(false);
+    this.hangarVisual?.setVisible(false);
   }
 
   private layoutTexturedRoute(width: number, height: number, roadY: number): void {
@@ -1142,7 +1150,7 @@ export class DepotTenangScene extends Phaser.Scene {
     }
 
     if (intention.type === "select-resting-place") {
-      this.onFeedback?.("vehicle-selected");
+      this.selectOrCycleTruckVariant();
       return;
     }
 
@@ -1844,6 +1852,24 @@ export class DepotTenangScene extends Phaser.Scene {
     return { minX, maxX, minY, maxY };
   }
 
+  private selectOrCycleTruckVariant(): void {
+    if (!this.truckBodyImage || this.activeVehicle !== "none" || this.truckPhase !== "ready") {
+      return;
+    }
+
+    if (!this.truckVariantSelectionArmed) {
+      this.truckVariantSelectionArmed = true;
+      this.onFeedback?.("vehicle-selected");
+      return;
+    }
+
+    this.truckVariantIndex = (this.truckVariantIndex + 1) % TRUCK_VARIANTS.length;
+    const variant = TRUCK_VARIANTS[this.truckVariantIndex];
+    this.truckBodyImage.setTexture(TRUCK_VARIANT_TEXTURES[variant]);
+    this.onFeedback?.(`truck-variant-${variant}`);
+    this.onActionAccepted?.();
+  }
+
   private startTruckJourney(): void {
     if (!this.truckBody || this.activeVehicle !== "none") {
       return;
@@ -1895,9 +1921,22 @@ export class DepotTenangScene extends Phaser.Scene {
     this.matter.body.setAngularVelocity(this.truckBody, 0);
     this.truckSettleOffset = this.reducedMotion ? 1.5 : 5;
     this.truckSettleVelocity = 0;
-    this.createCargo();
+
+    const variant = TRUCK_VARIANTS[this.truckVariantIndex];
+    if (variant === "cargo") {
+      this.createCargo();
+    } else {
+      this.clearCargo();
+    }
+
+    const serviceStates: Record<TruckVariant, DepotTenangState> = {
+      cargo: "cargo",
+      tanker: "tanker-service",
+      mixer: "mixer-service",
+      dump: "dump-service",
+    };
     this.truckPhase = "cargo";
-    this.onStateChange("cargo");
+    this.onStateChange(serviceStates[variant]);
   }
 
   private settleTruckAtGarage(): void {
@@ -2794,8 +2833,7 @@ export class DepotTenangScene extends Phaser.Scene {
   }
 
   private getTrainRailY(): number {
-    const roadY = this.getRoadY();
-    return roadY - 96 + 23;
+    return this.clamp(this.getWorldHeight() * 0.28, 118, 250);
   }
 
   private getTrainCarriagePosition(anchor: { x: number; y: number }, index: number): { x: number; y: number } {

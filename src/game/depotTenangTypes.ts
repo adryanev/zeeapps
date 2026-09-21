@@ -2,6 +2,9 @@ export type DepotTenangState =
   | "ready"
   | "moving"
   | "cargo"
+  | "tanker-service"
+  | "mixer-service"
+  | "dump-service"
   | "returning"
   | "quiet"
   | "recovering"
@@ -29,4 +32,8 @@ export type DepotTenangFeedback =
   | "airplane-recovered"
   | "airplane-corridor"
   | "quiet-response"
-  | "vehicle-selected";
+  | "vehicle-selected"
+  | "truck-variant-cargo"
+  | "truck-variant-tanker"
+  | "truck-variant-mixer"
+  | "truck-variant-dump";

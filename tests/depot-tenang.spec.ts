@@ -209,7 +209,7 @@ test.describe("Depot Tenang", () => {
     await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
   });
 
-  test("selects the truck at its Resting Place before the Explorer starts its journey", async ({ page }) => {
+  test("selects and cycles the truck variant before the Explorer starts its journey", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
     await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
@@ -220,17 +220,40 @@ test.describe("Depot Tenang", () => {
 
     await page.mouse.click(
       (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.14,
-      (bounds?.y ?? 0) + 338,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.62,
     );
 
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Truk kargo dipilih · ketuk lagi untuk ganti");
     await expect(page.getByTestId("active-vehicle")).toHaveText("Truk aktif");
+
+    await page.mouse.click(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.14,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.62,
+    );
+    await expect(page.getByTestId("game-status")).toHaveText("Truk minyak dipilih");
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Truk minyak aktif");
+    await expect(page.getByTestId("child-stage")).toHaveAttribute("data-truck-variant", "tanker");
+
+    for (const [status, variant] of [
+      ["Truk molen dipilih", "mixer"],
+      ["Truk tambang dipilih", "dump"],
+      ["Truk kargo dipilih", "cargo"],
+      ["Truk minyak dipilih", "tanker"],
+    ] as const) {
+      await page.mouse.click(
+        (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.14,
+        (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.62,
+      );
+      await expect(page.getByTestId("game-status")).toHaveText(status);
+      await expect(page.getByTestId("child-stage")).toHaveAttribute("data-truck-variant", variant);
+    }
 
     await page.mouse.click(
       (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.8,
       (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.8,
     );
     await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+    await expect(page.getByTestId("active-vehicle")).toHaveText("Truk minyak aktif");
   });
 
   test("completes the truck Vehicle Journey without dragging", async ({ page }) => {
@@ -268,7 +291,10 @@ test.describe("Depot Tenang", () => {
     const bounds = await canvas.boundingBox();
     expect(bounds).not.toBeNull();
 
-    const cargo = { x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.42, y: (bounds?.y ?? 0) + 300 };
+    const cargo = {
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.37,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.58,
+    };
     await page.mouse.move(cargo.x, cargo.y);
     await page.mouse.down();
     await expect(page.getByTestId("game-status")).toHaveText("Muatan bergerak perlahan");
@@ -295,7 +321,10 @@ test.describe("Depot Tenang", () => {
     const bounds = await canvas.boundingBox();
     expect(bounds).not.toBeNull();
 
-    const cargo = { x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.42, y: (bounds?.y ?? 0) + 300 };
+    const cargo = {
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.37,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.58,
+    };
     await page.mouse.move(cargo.x, cargo.y);
     await page.mouse.down();
     await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
@@ -397,7 +426,7 @@ test.describe("Depot Tenang", () => {
 
     await page.mouse.click(
       (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.82,
-      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.45,
+      (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.28,
     );
 
     await expect(page.getByTestId("active-vehicle")).toHaveText("Kereta aktif");
@@ -461,16 +490,28 @@ test.describe("Depot Tenang", () => {
     const bounds = await canvas.boundingBox();
     expect(bounds).not.toBeNull();
     const train = {
-      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.53,
-      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.45,
+      x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.43,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.28,
     };
     await page.mouse.move(train.x, train.y);
     await page.mouse.down();
+    const recoveryStarted = page.getByTestId("game-status").evaluate(
+      (status) =>
+        new Promise<void>((resolve) => {
+          const observeStatus = (): void => {
+            if (status.textContent === "Kereta kembali perlahan") {
+              observer.disconnect();
+              resolve();
+            }
+          };
+          const observer = new MutationObserver(observeStatus);
+          observer.observe(status, { childList: true, characterData: true, subtree: true });
+          observeStatus();
+        }),
+    );
     await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
 
-    await expect(page.getByTestId("game-status")).toHaveText("Kereta kembali perlahan", {
-      timeout: 8_000,
-    });
+    await recoveryStarted;
     await page.mouse.up();
     await expect(page.getByTestId("game-status")).toHaveText("Kereta di stasiun", {
       timeout: 8_000,
@@ -500,7 +541,7 @@ test.describe("Depot Tenang", () => {
     expect(bounds).not.toBeNull();
     const carriage = {
       x: (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.35,
-      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.45,
+      y: (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.28,
     };
     await page.mouse.move(carriage.x, carriage.y);
     await page.mouse.down();
@@ -601,10 +642,22 @@ test.describe("Depot Tenang", () => {
     await page.mouse.move(airplane.x, airplane.y);
     await page.mouse.down();
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat bergerak perlahan");
+    const recoveryStarted = page.getByTestId("game-status").evaluate(
+      (status) =>
+        new Promise<void>((resolve) => {
+          const observeStatus = (): void => {
+            if (status.textContent === "Pesawat kembali perlahan") {
+              observer.disconnect();
+              resolve();
+            }
+          };
+          const observer = new MutationObserver(observeStatus);
+          observer.observe(status, { childList: true, characterData: true, subtree: true });
+          observeStatus();
+        }),
+    );
     await page.mouse.move((bounds?.x ?? 0) + 4, (bounds?.y ?? 0) + 4, { steps: 8 });
-    await expect(page.getByTestId("game-status")).toHaveText("Pesawat kembali perlahan", {
-      timeout: 8_000,
-    });
+    await recoveryStarted;
     await page.mouse.up();
     await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {
       timeout: 8_000,
@@ -718,8 +771,8 @@ test.describe("Depot Tenang", () => {
       const bounds = await canvas.boundingBox();
       expect(bounds).not.toBeNull();
       await page.touchscreen.tap(
-        (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.94,
-        (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.72,
+        (bounds?.x ?? 0) + (bounds?.width ?? 0) * 0.83,
+        (bounds?.y ?? 0) + (bounds?.height ?? 0) * 0.58,
       );
 
       await expect(page.getByTestId("game-status")).toHaveText("Pesawat terbang di koridor aman", {

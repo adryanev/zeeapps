@@ -1,0 +1,13 @@
+Use case: stylized-concept
+Asset type: 3D modeling concept sheet for the Dunia Zee toddler game
+Input image: use `.impeccable/review/hero-repro.png` only as the visual style, wooden material, palette, lighting, and three-quarter camera reference
+Primary request: show a coherent family of four distinct wooden toy trucks: a general cargo truck with removable wooden crates, a cylindrical fuel tanker truck, a cement mixer truck with a large rotating drum, and a mining dump truck with a raised-capable tipping bed and chunky rocks
+Scene/backdrop: clean warm neutral studio backdrop with a subtle wooden tabletop, no game scenery
+Subject: four complete trucks arranged in one evenly spaced horizontal lineup; each uses the same teal rounded cab and shared dark wooden chassis, while the rear module and accent color make the silhouette unmistakably different
+Style/medium: polished low-poly 3D wooden toy product render, rounded child-safe forms, softly beveled edges, visible natural wood grain, handcrafted but production-consistent
+Composition/framing: landscape concept board, identical three-quarter side view and equal scale for all four trucks, every wheel and full silhouette visible, no overlap, generous margins
+Lighting/mood: soft warm studio lighting, calm playful mood, subtle contact shadows
+Color palette: teal cab, coral red, golden yellow, muted green, pale beech wood, charcoal tires
+Materials/textures: painted wood and natural beech; no metal realism or glossy plastic
+Constraints: strong readable silhouettes suitable for later Blender modeling; moving pieces clearly separated; consistent wheelbase, cab proportions, lighting, camera, and scale; no text, labels, logos, people, faces, watermark, road, buildings, or photoreal environment
+Avoid: visual clutter, tiny fragile details, sharp points, chrome, brand marks, mismatched camera angles, cut-off vehicles, duplicated wheels, malformed geometry

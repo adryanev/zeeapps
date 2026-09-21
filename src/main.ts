@@ -376,6 +376,7 @@ async function startDepotTenang(): Promise<void> {
   activateAudio(companionSettings.soundProfile);
   childStage.dataset.soundProfile = companionSettings.soundProfile;
   childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
+  childStage.dataset.truckVariant = "cargo";
   startButton.disabled = true;
   playroom.hidden = true;
   childStage.hidden = false;
@@ -475,6 +476,9 @@ function updateStageState(state: DepotTenangState): void {
     ready: "Truk menunggu di garasi",
     moving: "Truk sedang berjalan",
     cargo: "Truk menurunkan muatan",
+    "tanker-service": "Truk minyak mengisi tangki",
+    "mixer-service": "Truk molen mengaduk beton",
+    "dump-service": "Truk tambang menurunkan bak",
     returning: "Truk kembali ke garasi",
     quiet: "Truk tenang di garasi",
     recovering: "Muatan kembali perlahan",
@@ -500,13 +504,21 @@ function updateStageState(state: DepotTenangState): void {
     state === "airplane-recovering";
   const vehicleIsResting =
     state === "ready" || state === "quiet" || state === "train-quiet" || state === "airplane-quiet";
+  const truckNames: Record<string, string> = {
+    cargo: "Truk",
+    tanker: "Truk minyak",
+    mixer: "Truk molen",
+    dump: "Truk tambang",
+  };
+  const truckName = truckNames[childStage.dataset.truckVariant ?? "cargo"];
+
   activeVehicle.textContent = airplaneIsActive
     ? "Pesawat aktif"
     : trainIsActive
       ? "Kereta aktif"
       : vehicleIsResting
         ? "Belum ada kendaraan aktif"
-        : "Truk aktif";
+        : `${truckName} aktif`;
 }
 
 function updateStageFeedback(feedback: DepotTenangFeedback): void {
@@ -523,11 +535,25 @@ function updateStageFeedback(feedback: DepotTenangFeedback): void {
     "airplane-recovered": "Pesawat kembali perlahan",
     "airplane-corridor": "Pesawat tetap di koridor aman",
     "quiet-response": "Depot tetap tenang",
-    "vehicle-selected": "Truk menunggu di garasi",
+    "vehicle-selected": "Truk kargo dipilih · ketuk lagi untuk ganti",
+    "truck-variant-cargo": "Truk kargo dipilih",
+    "truck-variant-tanker": "Truk minyak dipilih",
+    "truck-variant-mixer": "Truk molen dipilih",
+    "truck-variant-dump": "Truk tambang dipilih",
   };
   gameStatus.textContent = labels[feedback];
-  if (feedback === "vehicle-selected") {
-    activeVehicle.textContent = "Truk aktif";
+
+  const selectedVariants: Partial<Record<DepotTenangFeedback, { key: string; label: string }>> = {
+    "vehicle-selected": { key: "cargo", label: "Truk" },
+    "truck-variant-cargo": { key: "cargo", label: "Truk" },
+    "truck-variant-tanker": { key: "tanker", label: "Truk minyak" },
+    "truck-variant-mixer": { key: "mixer", label: "Truk molen" },
+    "truck-variant-dump": { key: "dump", label: "Truk tambang" },
+  };
+  const selectedVariant = selectedVariants[feedback];
+  if (selectedVariant) {
+    childStage.dataset.truckVariant = selectedVariant.key;
+    activeVehicle.textContent = `${selectedVariant.label} aktif`;
   }
 }
 
@@ -619,6 +645,7 @@ function returnToPlayroom(): void {
   updateDioramaTime(0);
   playCycleState.textContent = "Exploring";
   delete childStage.dataset.quietState;
+  delete childStage.dataset.truckVariant;
 }
 
 function applySettingsToPanel(settings: CompanionSettings): void {
