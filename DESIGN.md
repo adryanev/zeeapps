@@ -1,84 +1,45 @@
-# Depot Tenang design system
+# Depot Tenang design
 
-Depot Tenang is a full-viewport wooden toy diorama for toddlers. The Child Stage presents one clear vehicle journey at a time. It has no score, timer, failure state, building labels, route labels, or visible instructions.
+Depot Tenang is a wooden vehicle playground for Zee, around two years old. The Explorer touches objects to change the world and can repeat or switch activities freely.
 
-The approved direction is **Meja Mainan Kayu** with **Kamera Mengikuti Kendaraan**. The visual authority is `.impeccable/mocks/wooden-compositions/follow-the-vehicle.png`. `PRODUCT.md` defines the product constraints, and `.impeccable/surfaces/src-game-depottenangscene-ts.md` defines the surface contract.
+## Composition
 
-## Visual hierarchy
+Use a 960 × 540 world with Phaser FIT. The close view gives vehicles and interactive objects most of the foreground. Each Activity shows only its own toys and surfaces against a plain, still background. The railway and signal appear only in Batu & kereta.
 
-The Active Vehicle is the primary object. On short mobile landscape screens, it occupies about one third of the viewport. Wider screens increase its visual scale without changing its Matter body.
+Vehicles use Blender sprites with exported wheel contacts and couplers. Stones, blocks, wooden molds, concrete, water, dirt, and refill props use a separate Blender catalogue with the same lighting and projection. Phaser draws the playground base, rails, and touch hints in matching coordinates. The previous rendered overview board remains a source asset.
 
-The scene uses three depth groups:
+Render at the displayed pixel density, capped at 3840 × 2160. Keep the logical world at 960 × 540 through camera scaling so physics and touch targets retain their coordinates. Vehicle sprites use 1536 × 1024 source images. Material sprites render at 256–1536 pixels according to their display size.
 
-- The foreground route uses a broad curved asphalt surface with a pale beech border.
-- The Active Vehicle, its moving parts, contact shadow, and dust sit above the route.
-- Resting vehicles and Resting Places stay visible at reduced scale and opacity.
+Three pictured activity buttons sit below the world. Labels supplement the pictures. One still, warm ring identifies the next touch target. Status text provides short visible and spoken feedback.
 
-Do not give a resting object the same contrast, scale, or saturation as the Active Vehicle. Keep edge-cropped resting objects quiet enough that they do not look interactive.
+Short landscape and portrait layouts keep the canvas and activity choices inside the viewport. Activity buttons are at least 44 pixels high.
 
-## Materials and color
+## Input
 
-Use these roles consistently:
+A tap loads a rock, chooses a destination, tips the bed, fills a mold, or washes dirt. Dragging the bed changes its angle. Loose rocks can be dragged and loaded again. The default path through every activity works with taps.
 
-| Role | Value or material |
-| --- | --- |
-| Dark wood and ground | `#986525`, `#917657` |
-| Beech highlight and route border | `#DBBF94`, `beech-wood-texture.png` |
-| Felt terrain | `#6D894F`, `felt-terrain-texture.png` |
-| Asphalt route | `asphalt-road-texture.png` |
-| Coral accent | `#BE5A25` |
-| Golden accent | `#D8AF4A` |
-| Tire and contact tone | `#25230C` |
+Space or Enter performs the next action. A contextual action button becomes visible when focused by keyboard. The Companion Gate remains available through a keyboard hold or both upper touch corners. Opening it clears gestures and pauses movement and physics.
 
-`DepotTenangScene.createTexturedRoute` creates one `CanvasTexture`. `layoutTexturedRoute` redraws that texture only when the scene starts or resizes. The canvas repeats the asphalt, beech, and felt raster sources inside the curved route and terrain shapes, then uploads the finished texture once to WebGL.
+## Activities
 
-Do not replace the route with a full-screen `TileSprite` or an untextured CSS shape. Keep the canvas transparent outside the route so that the wooden table remains visible.
+- **Batu & kereta:** three rocks block the railway. Loading the last rock releases the train. Touching the pit moves the dump truck there. Tilting its bed releases physical rocks onto a stack of blocks.
+- **Bangun jembatan:** touching molds queues concrete pours. Completing all three lets a cargo truck cross.
+- **Cuci pesawat:** touching or scrubbing mud removes it while the tanker sprays. Cleaning all patches starts the airplane's flight.
 
-## Composition and camera
+The supply box replenishes rocks or resets the active construction or washing activity. New rocks wait until the train clears the crossing. Switching activities retains the results and parks each truck at its own position. There is no required order or final state.
 
-The route enters from the lower foreground, sweeps past the Active Vehicle, and bends toward the distant Resting Places. The route must use the viewport height. Avoid straight horizontal bands.
+Inactive activities are hidden and paused. The train passes once after the railway clears; the cargo truck crosses once after the bridge is complete. The mixer drum turns only while pouring, and the airplane propeller turns only during takeoff. Repeating a result requires another interaction with the supply box.
 
-The camera places a moving land vehicle near 36 percent of the viewport width. Airplane framing uses a higher vertical focus. The camera eases toward the target and never teleports during normal motion.
+## Motion
 
-Short mobile landscape screens use a higher land-vehicle focus. Keep the wheels, contact shadow, and tappable route inside the viewport. Trim distant decoration before shrinking the Active Vehicle.
+Truck trips use bounded acceleration and braking. Train carriages use Matter constraints at measured couplers and stay on their rail contacts. Wheel hub markers turn with distance travelled.
 
-Reduced Motion keeps the same composition with a static camera. It also reduces lean, sway, and incidental motion.
+Released rocks and blocks use Matter gravity, restitution, friction, and collisions. Loading uses an assisted arc and holds rocks in the bed until tipping releases them. Replenishment recycles excess fallen rocks to keep long sessions bounded.
 
-## Vehicle motion
-
-Matter Physics owns vehicle and cargo positions. Guided Physics controls acceleration, braking, speed limits, and arrival. Visual containers follow the Matter bodies and add small authored responses:
-
-- The truck leans and compresses before departure.
-- Wheels rotate independently from the body raster.
-- The airplane propeller rotates independently.
-- The truck emits a short bounded dust puff while moving.
-- Arrival uses a damped settle without a bounce loop.
-
-Soft Grab moves a body toward the pointer through bounded velocity. Gentle Recovery returns a body when the pointer reaches a stage edge, the body leaves its safe corridor, or motion becomes stuck. Recovery must remain visible and calm. Do not teleport a vehicle or cargo during a normal interaction.
-
-Only one Active Vehicle can respond at a time. Keyboard, mouse, trackpad, and one-finger touch express the same journey intention.
-
-## Child Stage interface
-
-The Child Stage fills `100dvh` and clips world overscan. It contains no visible title, status card, or navigation control.
-
-Three small wooden pegs show the current vehicle. The active peg brightens and grows slightly. The semantic title, live status, and active-vehicle copy remain in the DOM for assistive technology and automated tests.
-
-The Companion Gate and settings remain outside ordinary toddler play. Preserve their keyboard and two-corner touch access.
-
-## Assets and provenance
-
-Production assets live in `public/assets/depot-tenang-v2/`. The inventory and dimensions live in `.impeccable/depot-tenang-v2-assets.json`. Exact generation prompts live in `.impeccable/asset-prompts/depot-tenang-v2/` and remain embedded in each generated raster.
-
-Keep vehicle bodies, wheels, propellers, shadows, and dust as separate transparent assets. Keep material textures tileable. Do not add chrome, photoreal room furniture, labels, or true 3D rendering.
+Action feedback uses suspension settling, continuous streams with impact droplets, dissolving mud, and brief completion glints. The mixer uses 24 Blender frames and the dump bed uses 13. Effects follow the scene clock, freeze during pause, and clear when activities change. Reduced Motion removes flying droplets, suspension bounce, and airplane banking, slows the mixer, and reduces rock bounce. Concrete, water, and flight remain simplified toy mechanisms.
 
 ## Verification
 
-Use these commands before changing the visual system:
+Run `npm run build` and `npm test`. Tests cover the three activity outcomes, physical cargo, rail contacts and couplers, repeated play, keyboard and touch, pause, responsive layouts, settings, and offline loading.
 
-```bash
-npm run typecheck
-npm test
-```
-
-The Playwright suite runs with one worker because concurrent Phaser WebGL scenes contend for the same GPU and create false journey timeouts. Review the final composition at 1672 by 941, 1366 by 768, and 844 by 390. The required comp-led capture is `.impeccable/review/hero-repro.png`.
+Use one Playwright worker because simultaneous WebGL scenes contend for the same GPU. Inspect desktop, short landscape, and portrait captures after layout changes. Automated checks do not establish whether Zee finds the game engaging.

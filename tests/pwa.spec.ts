@@ -118,7 +118,7 @@ test.describe("Dunia Zee PWA", () => {
 
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
     await expect(page.locator("canvas")).toBeVisible();
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
   });
 
   test("replaces the complete old cache without mixed-version resources", async ({ page }) => {

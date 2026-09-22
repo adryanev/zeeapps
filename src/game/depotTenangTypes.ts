@@ -1,39 +1,20 @@
-export type DepotTenangState =
-  | "ready"
-  | "moving"
-  | "cargo"
-  | "tanker-service"
-  | "mixer-service"
-  | "dump-service"
-  | "returning"
-  | "quiet"
-  | "recovering"
-  | "train-moving"
-  | "train-station"
-  | "train-returning"
-  | "train-quiet"
-  | "train-recovering"
-  | "airplane-taking-off"
-  | "airplane-flying"
-  | "airplane-returning"
-  | "airplane-quiet"
-  | "airplane-recovering";
+export type PlayActivity = "rocks" | "build" | "wash";
 
-export type DepotTenangFeedback =
-  | "cargo-grabbed"
-  | "cargo-released"
-  | "cargo-recovered"
-  | "train-grabbed"
-  | "train-released"
-  | "train-recovered"
-  | "train-sway"
-  | "airplane-grabbed"
-  | "airplane-released"
-  | "airplane-recovered"
-  | "airplane-corridor"
-  | "quiet-response"
-  | "vehicle-selected"
-  | "truck-variant-cargo"
-  | "truck-variant-tanker"
-  | "truck-variant-mixer"
-  | "truck-variant-dump";
+export type FreePlaySnapshot = {
+  activity: PlayActivity;
+  load: number;
+  delivered: number;
+  remaining: number;
+  bridge: number;
+  dirty: number;
+  moving: boolean;
+  action: string;
+  status: string;
+};
+
+export type DepotTenangCallbacks = {
+  onReady: () => void;
+  onChange: (snapshot: FreePlaySnapshot) => void;
+  onActionAccepted: () => void;
+  reducedMotion: boolean;
+};

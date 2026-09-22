@@ -63,3 +63,21 @@ test.describe("Guided Physics", () => {
     expect(Math.hypot(state.velocity.x, state.velocity.y)).toBeLessThanOrEqual(profile.settlingSpeed + 0.001);
   });
 });
+
+for (const frameMs of [1000 / 30, 1000 / 60, 1000 / 120, 45]) {
+  test(`settles without overshoot at a ${frameMs.toFixed(2)} ms update interval`, () => {
+    const state: GuidedMotionState = { position: { x: 0, y: 0 }, velocity: { x: 0, y: 0 } };
+    let arrived = false;
+    for (let elapsed = 0; elapsed < 8000; elapsed += frameMs) {
+      const step = stepGuidedMotion(state, { x: 240, y: 0 }, profile, frameMs);
+      state.velocity = step.velocity;
+      state.position.x += step.velocity.x * frameMs / (1000 / 60);
+      expect(state.position.x).toBeLessThanOrEqual(240.001);
+      expect(Math.hypot(step.velocity.x, step.velocity.y)).toBeLessThanOrEqual(profile.maxSpeed + 0.001);
+      if (step.arrived) { arrived = true; break; }
+    }
+    expect(arrived).toBe(true);
+    expect(state.position.x).toBeGreaterThanOrEqual(240 - profile.arrivalDistance - 0.01);
+    expect(Math.abs(state.velocity.x)).toBeLessThanOrEqual(profile.settlingSpeed);
+  });
+}

@@ -10,7 +10,7 @@ test.describe("Companion Gate", () => {
     await page.keyboard.down("Shift");
     await page.keyboard.down("Enter");
     await expect(page.getByTestId("companion-gate")).toBeVisible({ timeout: 3_000 });
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
     await page.keyboard.up("Enter");
     await page.keyboard.up("Shift");
 
@@ -29,26 +29,26 @@ test.describe("Companion Gate", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();
     await expect(page.getByTestId("child-stage")).toHaveAttribute("aria-busy", "false");
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
 
     await page.keyboard.down("Shift");
     await page.keyboard.down("Enter");
     await expect(page.getByTestId("companion-gate")).toBeVisible({ timeout: 3_000 });
     await page.keyboard.up("Enter");
     await page.keyboard.up("Shift");
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
 
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
     await page.getByTestId("child-stage").click({ position: { x: 820, y: 500 } });
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
 
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(page.getByTestId("companion-gate")).toBeHidden();
-    await expect(page.getByTestId("game-status")).toHaveText("Truk menunggu di garasi");
+    await expect(page.getByTestId("game-status")).toHaveText("Sentuh batu di rel");
 
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("game-status")).toHaveText("Truk sedang berjalan");
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("child-stage")).toHaveAttribute("data-load", "1");
   });
 
   test("returns to the Playroom without duplicating the Game", async ({ page }) => {

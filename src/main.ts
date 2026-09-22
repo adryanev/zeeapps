@@ -12,7 +12,7 @@ import {
   createDepotTenangGame,
   type DepotTenangGame,
 } from "./game/depotTenangGameFactory";
-import type { DepotTenangFeedback, DepotTenangState } from "./game/depotTenangTypes";
+import type { FreePlaySnapshot, PlayActivity } from "./game/depotTenangTypes";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -41,9 +41,9 @@ app.innerHTML = `
         <div class="game-card__body">
           <p class="eyebrow">Game pertama</p>
           <h2 id="depot-title">Depot Tenang</h2>
-          <p>Truk, kereta api, dan pesawat datang lalu pulang ke tempatnya.</p>
+          <p>Batu menggelinding, kereta lewat, dan pesawat bersih kembali. Sentuh mainannya dan lihat apa yang terjadi.</p>
           <p class="companion-prompt" data-testid="companion-prompt">
-            Companion: tunjuk kendaraan yang datang, lalu tirukan suaranya bersama Explorer.
+            Companion: lihat, ada batu di rel! Apa yang terjadi kalau kita pindahkan?
           </p>
           <section class="companion-settings" data-testid="companion-settings" aria-labelledby="settings-title">
             <h3 id="settings-title">Companion settings</h3>
@@ -80,7 +80,7 @@ app.innerHTML = `
     <section
       class="child-stage"
       data-testid="child-stage"
-      data-direction-contract="follow-the-vehicle"
+      data-play-mode="free-play"
       aria-labelledby="stage-title"
       hidden
     >
@@ -92,13 +92,7 @@ app.innerHTML = `
         <div class="stage-status" aria-live="polite">
           <span class="active-vehicle" data-testid="active-vehicle">Belum ada kendaraan aktif</span>
           <span class="game-status" data-testid="game-status">Depot sedang dibuka</span>
-          <span class="diorama-time" data-testid="diorama-time">Afternoon</span>
-          <span class="play-cycle-state" data-testid="play-cycle-state">Exploring</span>
-        </div>
-        <div class="stage-pegs" data-testid="stage-pegs" aria-hidden="true">
-          <span class="stage-peg stage-peg--truck" data-vehicle="truck"></span>
-          <span class="stage-peg stage-peg--train" data-vehicle="train"></span>
-          <span class="stage-peg stage-peg--airplane" data-vehicle="airplane"></span>
+          <span class="load-status" data-testid="load-status"></span>
         </div>
       </header>
       <div
@@ -106,7 +100,7 @@ app.innerHTML = `
         class="game-mount"
         tabindex="0"
         role="application"
-        aria-label="Child Stage Depot Tenang. Tekan tombol atau ketuk untuk melihat kendaraan berjalan."
+        aria-label="Depot Tenang. Sentuh benda yang berlingkar cahaya. Spasi atau Enter memainkan benda berikutnya."
       >
         <div class="game-loading" data-testid="game-loading" role="status" aria-live="polite" hidden>
           <p class="eyebrow">Depot Tenang</p>
@@ -121,6 +115,14 @@ app.innerHTML = `
             <button class="secondary-button" data-testid="game-load-return" type="button">Return to Playroom</button>
           </div>
         </div>
+      </div>
+      <div class="free-play-controls" hidden>
+        <div class="activity-picker" role="group" aria-label="Pilih tempat bermain">
+          <button type="button" data-activity="rocks" aria-label="Bermain batu dan kereta" aria-pressed="true"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mining-dump-body.png" alt="" /><span>Batu & kereta</span></button>
+          <button type="button" data-activity="build" aria-label="Bangun jembatan" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mixer-body.png" alt="" /><span>Bangun jembatan</span></button>
+          <button type="button" data-activity="wash" aria-label="Cuci pesawat" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/airplane-body.png" alt="" /><span>Cuci pesawat</span></button>
+        </div>
+        <button type="button" class="accessible-action" data-testid="vehicle-action">Mainkan benda yang disorot</button>
       </div>
       <p class="portrait-guidance" data-testid="portrait-guidance" role="status">
         Putar perangkat ke posisi landscape untuk bermain lebih nyaman.
@@ -161,8 +163,9 @@ const gameLoadRetry = getRequiredElement<HTMLButtonElement>("[data-testid='game-
 const gameLoadReturn = getRequiredElement<HTMLButtonElement>("[data-testid='game-load-return']");
 const gameStatus = getRequiredElement<HTMLElement>("[data-testid='game-status']");
 const activeVehicle = getRequiredElement<HTMLElement>("[data-testid='active-vehicle']");
-const dioramaTime = getRequiredElement<HTMLElement>("[data-testid='diorama-time']");
-const playCycleState = getRequiredElement<HTMLElement>("[data-testid='play-cycle-state']");
+const loadStatus = getRequiredElement<HTMLElement>("[data-testid='load-status']");
+const playControls = getRequiredElement<HTMLElement>(".free-play-controls");
+const actionButton = getRequiredElement<HTMLButtonElement>("[data-testid='vehicle-action']");
 const soundProfileInputs = getRequiredElements<HTMLInputElement>("input[name='sound-profile']");
 const reducedMotionInput = getRequiredElement<HTMLInputElement>("[data-testid='reduced-motion-toggle']");
 const companionGate = getRequiredElement<HTMLElement>("[data-testid='companion-gate']");
@@ -207,16 +210,6 @@ let isGameLoading = false;
 let isGameReady = false;
 let isCompanionGateOpen = false;
 let gameLoadAttempt = 0;
-const pendingKeyboardInputs: string[] = [];
-const pendingPointerInputs: Array<{ clientX: number; clientY: number }> = [];
-const keyboardCodes: Record<string, number> = {
-  ArrowRight: 39,
-  ArrowLeft: 37,
-  ArrowUp: 38,
-  ArrowDown: 40,
-  Space: 32,
-  Enter: 13,
-};
 const gameplayKeyboardKeys = new Set([
   "ArrowRight",
   "ArrowLeft",
@@ -329,32 +322,6 @@ for (const eventName of ["touchstart", "touchmove", "touchend", "touchcancel"] a
   );
 }
 
-window.addEventListener(
-  "keydown",
-  (event) => {
-    if (isGameReady || isCompanionGateOpen || !gameplayKeyboardKeys.has(event.key)) {
-      return;
-    }
-
-    pendingKeyboardInputs.push(event.key);
-  },
-  true,
-);
-childStage.addEventListener(
-  "pointerdown",
-  (event) => {
-    if (isGameReady) {
-      return;
-    }
-
-    pendingPointerInputs.push({
-      clientX: event.clientX,
-      clientY: event.clientY,
-    });
-  },
-  true,
-);
-
 companionGateContinue.addEventListener("click", closeCompanionGate);
 companionGateReturn.addEventListener("click", returnToPlayroom);
 gameLoadRetry.addEventListener("click", () => {
@@ -364,6 +331,21 @@ gameLoadReturn.addEventListener("click", returnToPlayroom);
 
 startButton.addEventListener("click", () => {
   void startDepotTenang();
+});
+
+document.querySelectorAll<HTMLButtonElement>("[data-activity]").forEach(button => {
+  button.addEventListener("click", () => {
+    if (!isGameReady || isCompanionGateOpen) return;
+    game?.selectActivity(button.dataset.activity as PlayActivity);
+    gameMount.focus();
+  });
+});
+actionButton.addEventListener("click", () => {
+  if (isGameReady && !isCompanionGateOpen) game?.interact();
+  gameMount.focus();
+});
+document.addEventListener("visibilitychange", () => {
+  if (isGameReady) game?.setPaused(document.hidden || isCompanionGateOpen);
 });
 
 async function startDepotTenang(): Promise<void> {
@@ -376,7 +358,6 @@ async function startDepotTenang(): Promise<void> {
   activateAudio(companionSettings.soundProfile);
   childStage.dataset.soundProfile = companionSettings.soundProfile;
   childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
-  childStage.dataset.truckVariant = "cargo";
   startButton.disabled = true;
   playroom.hidden = true;
   childStage.hidden = false;
@@ -384,8 +365,7 @@ async function startDepotTenang(): Promise<void> {
   gameLoading.hidden = false;
   gameLoadError.hidden = true;
   gameStatus.textContent = "Depot Tenang sedang dimuat";
-  updateDioramaTime(0);
-  playCycleState.textContent = "Exploring";
+  playControls.hidden = true;
 
   try {
     const serviceWorkerStatus = await serviceWorkerReady;
@@ -403,16 +383,9 @@ async function startDepotTenang(): Promise<void> {
     game = await createDepotTenangGame(
       {
         parent: gameMount,
-        onStateChange: (state) => {
-          updateStageState(state);
-          if (state === "ready") {
-            resolveGameStageReady?.();
-          }
-        },
-        onFeedback: updateStageFeedback,
+        onReady: () => resolveGameStageReady?.(),
+        onChange: updateFreePlay,
         onActionAccepted: playActionSound,
-        onJourneyComplete: updateDioramaTime,
-        onPlayCycleComplete: enterQuietState,
         reducedMotion: companionSettings.reducedMotion,
       },
       loadDepotTenangGameDependencies,
@@ -422,7 +395,9 @@ async function startDepotTenang(): Promise<void> {
       window.requestAnimationFrame(() => resolve());
     });
     isGameReady = true;
-    replayPendingInputs();
+    playControls.hidden = false;
+    game.setPaused(isCompanionGateOpen);
+    gameMount.focus();
     gameLoading.hidden = true;
     gameLoadError.hidden = true;
   } catch {
@@ -435,137 +410,21 @@ async function startDepotTenang(): Promise<void> {
   }
 }
 
-function replayPendingInputs(): void {
-  for (const key of pendingKeyboardInputs.splice(0)) {
-    const event = new KeyboardEvent("keydown", { bubbles: true, key });
-    Object.defineProperty(event, "keyCode", { value: keyboardCodes[key] });
-    Object.defineProperty(event, "which", { value: keyboardCodes[key] });
-    window.dispatchEvent(event);
-  }
-
-  const canvas = gameMount.querySelector<HTMLCanvasElement>("canvas");
-  if (!canvas) {
-    pendingPointerInputs.length = 0;
-    return;
-  }
-
-  for (const input of pendingPointerInputs.splice(0)) {
-    canvas.dispatchEvent(
-      new MouseEvent("mousedown", {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        clientX: input.clientX,
-        clientY: input.clientY,
-      }),
-    );
-    canvas.dispatchEvent(
-      new MouseEvent("mouseup", {
-        bubbles: true,
-        button: 0,
-        buttons: 0,
-        clientX: input.clientX,
-        clientY: input.clientY,
-      }),
-    );
-  }
-}
-
-function updateStageState(state: DepotTenangState): void {
-  const labels: Record<DepotTenangState, string> = {
-    ready: "Truk menunggu di garasi",
-    moving: "Truk sedang berjalan",
-    cargo: "Truk menurunkan muatan",
-    "tanker-service": "Truk minyak mengisi tangki",
-    "mixer-service": "Truk molen mengaduk beton",
-    "dump-service": "Truk tambang menurunkan bak",
-    returning: "Truk kembali ke garasi",
-    quiet: "Truk tenang di garasi",
-    recovering: "Muatan kembali perlahan",
-    "train-moving": "Kereta sedang berjalan",
-    "train-station": "Kereta di stasiun",
-    "train-returning": "Kereta kembali ke depot",
-    "train-quiet": "Kereta tenang di depot",
-    "train-recovering": "Kereta kembali perlahan",
-    "airplane-taking-off": "Pesawat lepas landas",
-    "airplane-flying": "Pesawat terbang di koridor aman",
-    "airplane-returning": "Pesawat kembali ke hangar",
-    "airplane-quiet": "Pesawat tenang di hangar",
-    "airplane-recovering": "Pesawat kembali perlahan",
-  };
-
-  gameStatus.textContent = labels[state];
-  childStage.dataset.vehicleState = state;
-  const trainIsActive = state.startsWith("train-") && state !== "train-quiet";
-  const airplaneIsActive =
-    state === "airplane-taking-off" ||
-    state === "airplane-flying" ||
-    state === "airplane-returning" ||
-    state === "airplane-recovering";
-  const vehicleIsResting =
-    state === "ready" || state === "quiet" || state === "train-quiet" || state === "airplane-quiet";
-  const truckNames: Record<string, string> = {
-    cargo: "Truk",
-    tanker: "Truk minyak",
-    mixer: "Truk molen",
-    dump: "Truk tambang",
-  };
-  const truckName = truckNames[childStage.dataset.truckVariant ?? "cargo"];
-
-  activeVehicle.textContent = airplaneIsActive
-    ? "Pesawat aktif"
-    : trainIsActive
-      ? "Kereta aktif"
-      : vehicleIsResting
-        ? "Belum ada kendaraan aktif"
-        : `${truckName} aktif`;
-}
-
-function updateStageFeedback(feedback: DepotTenangFeedback): void {
-  const labels: Record<DepotTenangFeedback, string> = {
-    "cargo-grabbed": "Muatan bergerak perlahan",
-    "cargo-released": "Muatan dilepas dengan lembut",
-    "cargo-recovered": "Muatan kembali perlahan",
-    "train-grabbed": "Kereta bergerak perlahan",
-    "train-released": "Kereta dilepas dengan lembut",
-    "train-recovered": "Kereta kembali perlahan",
-    "train-sway": "Gerbong bergoyang lembut",
-    "airplane-grabbed": "Pesawat bergerak perlahan",
-    "airplane-released": "Pesawat dilepas dengan lembut",
-    "airplane-recovered": "Pesawat kembali perlahan",
-    "airplane-corridor": "Pesawat tetap di koridor aman",
-    "quiet-response": "Depot tetap tenang",
-    "vehicle-selected": "Truk kargo dipilih · ketuk lagi untuk ganti",
-    "truck-variant-cargo": "Truk kargo dipilih",
-    "truck-variant-tanker": "Truk minyak dipilih",
-    "truck-variant-mixer": "Truk molen dipilih",
-    "truck-variant-dump": "Truk tambang dipilih",
-  };
-  gameStatus.textContent = labels[feedback];
-
-  const selectedVariants: Partial<Record<DepotTenangFeedback, { key: string; label: string }>> = {
-    "vehicle-selected": { key: "cargo", label: "Truk" },
-    "truck-variant-cargo": { key: "cargo", label: "Truk" },
-    "truck-variant-tanker": { key: "tanker", label: "Truk minyak" },
-    "truck-variant-mixer": { key: "mixer", label: "Truk molen" },
-    "truck-variant-dump": { key: "dump", label: "Truk tambang" },
-  };
-  const selectedVariant = selectedVariants[feedback];
-  if (selectedVariant) {
-    childStage.dataset.truckVariant = selectedVariant.key;
-    activeVehicle.textContent = `${selectedVariant.label} aktif`;
-  }
-}
-
-function updateDioramaTime(completedJourneys: number): void {
-  const timeOfDay = completedJourneys >= 3 ? "Dusk" : completedJourneys > 0 ? "Late afternoon" : "Afternoon";
-  dioramaTime.textContent = timeOfDay;
-  childStage.dataset.timeOfDay = timeOfDay.toLowerCase().replace(" ", "-");
-}
-
-function enterQuietState(): void {
-  playCycleState.textContent = "Quiet State";
-  childStage.dataset.quietState = "true";
+function updateFreePlay(snapshot: FreePlaySnapshot): void {
+  childStage.dataset.activity = snapshot.activity;
+  childStage.dataset.load = String(snapshot.load);
+  childStage.dataset.remaining = String(snapshot.remaining);
+  childStage.dataset.delivered = String(snapshot.delivered);
+  childStage.dataset.bridge = String(snapshot.bridge);
+  childStage.dataset.dirty = String(snapshot.dirty);
+  childStage.dataset.vehicleState = snapshot.moving ? "moving" : "ready";
+  activeVehicle.textContent = "";
+  loadStatus.textContent = "";
+  gameStatus.textContent = snapshot.status;
+  actionButton.textContent = snapshot.action;
+  document.querySelectorAll<HTMLButtonElement>("[data-activity]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.activity === snapshot.activity));
+  });
 }
 
 function activateAudio(soundProfile: SoundProfile): void {
@@ -617,13 +476,16 @@ function openCompanionGate(): void {
   }
 
   isCompanionGateOpen = true;
+  if (isGameReady) game?.setPaused(true);
   companionGate.hidden = false;
   companionGateContinue.focus();
 }
 
 function closeCompanionGate(): void {
   isCompanionGateOpen = false;
+  if (isGameReady) game?.setPaused(false);
   companionGate.hidden = true;
+  gameMount.focus();
 }
 
 function returnToPlayroom(): void {
@@ -632,8 +494,7 @@ function returnToPlayroom(): void {
   game = undefined;
   isGameLoading = false;
   isGameReady = false;
-  pendingKeyboardInputs.length = 0;
-  pendingPointerInputs.length = 0;
+
   childStage.hidden = true;
   childStage.setAttribute("aria-busy", "false");
   playroom.hidden = false;
@@ -642,10 +503,10 @@ function returnToPlayroom(): void {
   gameLoadError.hidden = true;
   gameStatus.textContent = "Depot sedang dibuka";
   activeVehicle.textContent = "Belum ada kendaraan aktif";
-  updateDioramaTime(0);
-  playCycleState.textContent = "Exploring";
-  delete childStage.dataset.quietState;
-  delete childStage.dataset.truckVariant;
+  playControls.hidden = true;
+  void audioContext?.close();
+  audioContext = undefined;
+  nextActionSoundAt = 0;
 }
 
 function applySettingsToPanel(settings: CompanionSettings): void {
