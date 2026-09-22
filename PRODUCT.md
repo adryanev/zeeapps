@@ -8,7 +8,7 @@ web
 
 ## Users
 
-The primary Explorer is a toddler, currently about one year and ten months old, who plays on a laptop or touchscreen device. A family Companion may join through pointing, imitation, conversation, and co-presence while the Explorer keeps control.
+The primary Explorer is a toddler, around two years old, who plays on a laptop or touchscreen device. A family Companion may join through pointing, imitation, conversation, and co-presence while the Explorer keeps control.
 
 ## Product purpose
 
@@ -20,17 +20,17 @@ Dunia Zee treats the Child Stage as a living toy diorama rather than a lesson, s
 
 ## Operating context
 
-Families open the same hosted website without accounts or child profiles. The primary setting is a laptop, with mobile and tablet touch support in landscape. The first Game, Depot Tenang, contains trucks, trains, airplanes, their Resting Places, and a repeatable calm Play Cycle.
+Families open the same hosted website without accounts or child profiles. The primary setting is a laptop, with mobile and tablet touch support in landscape. Depot Tenang offers Free Play with trucks, trains, airplanes, supply boxes, and repeatable Activities in one Diorama.
 
 ## Capabilities and constraints
 
 - Depot Tenang uses Phaser 4 with Matter Physics and deploys as a static GitHub Pages website.
 - Keyboard, mouse, trackpad, and one-finger touch must provide Equivalent Input.
-- Only one Active Vehicle responds at a time.
-- Vehicle Journeys use Guided Physics, Soft Grab, and Gentle Recovery.
+- One Activity receives direct input at a time; other vehicles can react to its results.
+- Touching objects causes visible changes. Vehicles travel automatically to activity destinations. Loose rocks support Soft Grab and bounded physical collisions.
 - The Child Stage has no score, countdown, failure state, or ordinary navigation controls.
 - Companion settings remain outside the Child Stage and stay device-local.
-- The visual world may be replaced completely, but the vehicle set, interaction model, safety behavior, and public access must remain.
+- Keep the vehicle variety, calm play, safety behavior, and public access. The chosen interaction model is direct-touch Free Play: clear the railway, build a bridge, and wash an airplane.
 - Art remains layered 2D or 2.5D rather than true 3D.
 
 ## Brand commitments
@@ -41,7 +41,7 @@ The product name is Dunia Zee and its first Game is Depot Tenang. The interface 
 
 - Current product behavior and terminology are documented in `CONTEXT.md`.
 - The current implementation and the user's screenshots are evidence of layout and motion problems, not visual authority for the redesign.
-- Original production-ready illustration assets do not yet exist.
+- Blender source models, rendered sprites, and measured vehicle geometry live in the repository.
 
 ## Product principles
 

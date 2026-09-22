@@ -276,12 +276,108 @@ h2 {
   min-height: min(320px, 100vh);
   min-height: min(320px, 100dvh);
   overflow: hidden;
-  background: #986525;
+  background: #43505a;
   touch-action: none;
 }
 
 .child-stage[hidden] {
   display: none;
+}
+
+/* Controls live outside the board so every viewport keeps the same world shape. */
+.child-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #ece1cf;
+}
+.child-stage .stage-hud {
+  position: relative;
+  padding: 10px 24px;
+  min-height: 52px;
+  justify-content: center;
+  background: #fff9ed;
+}
+.child-stage .stage-status {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  font-size: 13px;
+}
+.child-stage .active-vehicle { font-weight: 900; }
+.child-stage .game-mount { overflow: hidden; }
+.free-play-controls {
+  display: grid;
+  gap: 8px;
+  padding: 8px 16px 12px;
+  background: #fff9ed;
+  border-top: 1px solid #d8cbb5;
+}
+.free-play-controls[hidden] { display: none; }
+.child-stage .free-play-controls { display: block; padding: 6px 12px 10px; }
+.child-stage .free-play-controls[hidden] { display: none; }
+.activity-picker { display: flex; justify-content: center; gap: 14px; }
+.activity-picker button { width: 140px; min-height: 68px; display: grid; justify-items: center; padding: 0 8px 6px; font-size: 12px; }
+.activity-picker img { width: 90px; height: 44px; object-fit: contain; }
+.activity-picker button[aria-pressed="true"] { background: #dce9d8; border-color: #426e60; }
+.accessible-action { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.accessible-action:focus-visible { position: fixed; z-index: 35; bottom: 100px; left: 25%; width: 50%; height: 50px; clip-path: none; }
+@media (max-height: 500px) {
+  .child-stage .free-play-controls { padding: 3px 8px; }
+  .activity-picker button { width: 135px; min-height: 50px; grid-template-columns: 55px 1fr; align-items: center; padding: 0 5px; font-size: 10px; }
+  .activity-picker img { width: 55px; height: 40px; }
+}
+@media (max-width: 500px) {
+  .activity-picker { gap: 6px; }
+  .activity-picker button { width: 30%; font-size: 10px; }
+}
+.vehicle-picker, .drive-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.free-play-controls button {
+  border: 2px solid #d8cbb5;
+  border-radius: 14px;
+  background: #f3e9d8;
+  color: #35444c;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  font-weight: 800;
+}
+.free-play-controls button:focus-visible { outline: 3px solid #b06a39; outline-offset: 2px; }
+.free-play-controls button:disabled { opacity: .65; cursor: default; }
+.vehicle-picker button { width: 95px; min-height: 64px; padding: 0 3px 5px; font-size: 10px; }
+.vehicle-picker img { display: block; width: 78px; height: 43px; object-fit: contain; margin: auto; }
+.vehicle-picker button[aria-pressed="true"] { border-color: #426e60; background: #dce9d8; }
+.drive-controls button { min-width: 56px; min-height: 48px; font-size: 21px; }
+.drive-controls .vehicle-action { min-width: 180px; padding: 8px 18px; background: #426e60; border-color: #426e60; color: #fff9ed; font-size: 14px; }
+.control-hint { max-width: 145px; font-size: 11px; color: #69746b; line-height: 1.5; }
+.child-stage .companion-gate-touch { width: 44px; height: 44px; }
+@media (max-height: 500px) {
+  .child-stage .stage-hud { padding: 4px 48px; min-height: 28px; }
+  .free-play-controls { grid-template-columns: 1fr auto; gap: 4px; padding: 5px 8px; }
+  .vehicle-picker, .drive-controls { gap: 4px; }
+  .vehicle-picker button { width: 59px; min-height: 51px; font-size: 8px; }
+  .vehicle-picker img { width: 55px; height: 31px; }
+  .drive-controls .vehicle-action { min-width: 120px; padding: 5px 7px; font-size: 12px; }
+  .drive-controls button { min-width: 44px; min-height: 44px; }
+  .control-hint { display: none; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  .vehicle-picker { flex-wrap: wrap; }
+  .vehicle-picker button { width: 28%; }
+  .drive-controls { flex-wrap: wrap; }
+  .control-hint { display: none; }
+  .child-stage .stage-status { flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+  .child-stage .portrait-guidance { top: 78px; bottom: auto; font-size: 11px; padding: 6px; }
 }
 
 .stage-hud {
@@ -379,8 +475,9 @@ h2 {
 
 .game-mount canvas {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
+  /* Phaser FIT owns the dimensions so image and input coordinates stay aligned. */
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .game-loading,

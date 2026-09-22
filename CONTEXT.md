@@ -44,12 +44,12 @@ _Avoid_: Unsupervised play, babysitting mode
 A period of open exploration that may move naturally between Independent exploration and Co-play.
 _Avoid_: Lesson, level, exercise
 
-**Play Cycle**:
-A repeatable story arc inside a Play Session that reaches a calm stopping point without declaring success or failure.
-_Avoid_: Round, level, challenge
+**Free Play**:
+Exploration of one shared vehicle world. The Explorer chooses an Activity, touches its objects, and repeats activities in any order. There is no final state that disables play.
+_Avoid_: Fixed sequence, level, challenge
 
 **Child Stage**:
-The menu-free part of a Game where the Explorer controls play through safe keyboard and pointer actions.
+The part of a Game where the Explorer controls play through keyboard, pointer, and pictured Activity choices. Administrative navigation stays behind the Companion Gate.
 _Avoid_: Game page, child mode
 
 **Companion Gate**:
@@ -61,28 +61,28 @@ Predictable, low-pressure play without scores, countdowns, or failure states.
 _Avoid_: Challenge mode, test
 
 **Depot Tenang**:
-The first Game in Dunia Zee, a calm vehicle world where trucks, trains, and airplanes arrive, move, and settle down.
-_Avoid_: Vehicle lesson, driving game
+The first Game in Dunia Zee, a calm vehicle world for clearing a railway, building a bridge, and washing an airplane.
+_Avoid_: Vehicle lesson
 
 **Diorama**:
 Depot Tenang's shared side-view world, with a road in front, railway in the middle, and sky above.
 _Avoid_: Map, level, separate scene
 
 **Active Vehicle**:
-The single vehicle that currently responds to the Explorer's keyboard and pointer actions in the Depot.
+The foreground vehicle that helps carry out the selected Activity. Other vehicles can react to changes in the Diorama.
 _Avoid_: Selected object, player character
 
 **Resting Place**:
 A vehicle's recognizable home in the Diorama, such as the garage, station, or hangar.
 _Avoid_: Goal, finish line, target
 
-**Vehicle Journey**:
-The three-part path of an Active Vehicle as it arrives, performs its characteristic activity, and returns to its Resting Place.
-_Avoid_: Task, mission, stage
+**Activity**:
+A repeatable action with a visible result in the Diorama, such as unloading rocks, pouring a bridge, or washing an airplane.
+_Avoid_: Mission, required stage
 
-**Quiet State**:
-The end of a Play Cycle, when all vehicles rest and further input produces only small, gentle responses.
-_Avoid_: Game over, completion screen, idle mode
+**Loading Bay**:
+A recognizable supply area that provides materials for repeated play. Depot Tenang uses a pictured supply box to replenish or reset the active Activity.
+_Avoid_: Checkpoint, finish line
 
 **Guided Physics**:
 Physical movement that preserves weight, momentum, and soft collisions while keeping every object inside a safe, playable range.
@@ -93,11 +93,11 @@ A forgiving pointer interaction that pulls a physical object with gentle lag ins
 _Avoid_: Precise drag-and-drop, direct positioning
 
 **Equivalent Input**:
-Different physical actions that express the same play intention across devices, such as a keyboard press or an empty-area tap advancing a Vehicle Journey.
+Different physical actions that express the same play intention across devices, such as tapping a highlighted object or pressing Space to perform the next action.
 _Avoid_: Mobile mode, desktop mode
 
 **Expressive Gesture**:
-An optional swipe or movement that adds a physical response without being required to continue a Vehicle Journey.
+An optional swipe or movement that adds a physical response without being required to continue an Activity.
 _Avoid_: Required gesture, gesture challenge
 
 **Gentle Recovery**:
@@ -117,7 +117,7 @@ The Companion's device-local choice between Lembut, Normal, and Senyap for all G
 _Avoid_: Audio mode, child volume control
 
 **Reduced Motion**:
-A device-local Companion preference that reduces incidental sway, parallax, and physical impulses without changing a Vehicle Journey.
+A device-local Companion preference that reduces incidental sway and physical impulses without changing an Activity.
 _Avoid_: Easy mode, static mode
 
 **2.5D art**:

@@ -4,3 +4,16 @@ playwright-report
 test-results
 *.tsbuildinfo
 .DS_Store
+.serena/
+__pycache__/
+*.py[cod]
+*.blend1
+
+# Generated Blender previews and local modeling checkpoints
+assets-source/blender/**/renders/
+assets-source/blender/**/truck-family-v*.blend
+.impeccable/review/depot-tenang-environment-v*.png
+.impeccable/review/depot-tenang-game-blender-env-v*.png
+.impeccable/review/truck-family-blender-v*.png
+.impeccable/review/truck-family-preview.png
+.impeccable/review/tanker-mixer-detail-v*.png

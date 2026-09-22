@@ -1,0 +1,118 @@
+{
+  "rock-0": {
+    "file": "material-rock-0.png",
+    "width": 53,
+    "height": 53
+  },
+  "rock-1": {
+    "file": "material-rock-1.png",
+    "width": 53,
+    "height": 53
+  },
+  "rock-2": {
+    "file": "material-rock-2.png",
+    "width": 53,
+    "height": 53
+  },
+  "block": {
+    "file": "material-block.png",
+    "width": 48,
+    "height": 48
+  },
+  "mold-0": {
+    "file": "material-mold-0.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "mold-1": {
+    "file": "material-mold-1.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "mold-2": {
+    "file": "material-mold-2.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "mold-3": {
+    "file": "material-mold-3.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "mold-4": {
+    "file": "material-mold-4.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "mold-5": {
+    "file": "material-mold-5.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "mold-6": {
+    "file": "material-mold-6.png",
+    "width": 110,
+    "height": 55,
+    "contactY": 1.7019,
+    "contactX": 0.0
+  },
+  "pool": {
+    "file": "material-pool.png",
+    "width": 380,
+    "height": 126
+  },
+  "water-drop": {
+    "file": "material-water-drop.png",
+    "width": 18,
+    "height": 24
+  },
+  "concrete-drop": {
+    "file": "material-concrete-drop.png",
+    "width": 18,
+    "height": 24
+  },
+  "water-splash": {
+    "file": "material-water-splash.png",
+    "width": 64,
+    "height": 44
+  },
+  "concrete-splash": {
+    "file": "material-concrete-splash.png",
+    "width": 64,
+    "height": 44
+  },
+  "mud": {
+    "file": "material-mud.png",
+    "width": 70,
+    "height": 46
+  },
+  "cement-sack": {
+    "file": "material-cement-sack.png",
+    "width": 104,
+    "height": 104
+  },
+  "water-bucket": {
+    "file": "material-water-bucket.png",
+    "width": 104,
+    "height": 104
+  },
+  "water-hose": {
+    "file": "material-water-hose.png",
+    "width": 75,
+    "height": 56,
+    "contactY": -10.0179,
+    "contactX": -28.0
+  }
+}
