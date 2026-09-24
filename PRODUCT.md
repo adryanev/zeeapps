@@ -20,18 +20,18 @@ Dunia Zee treats the Child Stage as a living toy diorama rather than a lesson, s
 
 ## Operating context
 
-Families open the same hosted website without accounts or child profiles. The primary setting is a laptop, with mobile and tablet touch support in landscape. Depot Tenang offers Free Play with trucks, trains, airplanes, supply boxes, and repeatable Activities in one Diorama.
+Families open the same hosted website without accounts or child profiles. Depot Tenang supports laptop, portrait phone, and landscape touch play. Its Free Play has trucks, trains, airplanes, supply boxes, and repeatable Activities in one Diorama.
 
 ## Capabilities and constraints
 
-- Depot Tenang uses Phaser 4 with Matter Physics and deploys as a static GitHub Pages website.
+- Depot Tenang uses Three.js and Rapier 3D and deploys as a static GitHub Pages website.
 - Keyboard, mouse, trackpad, and one-finger touch must provide Equivalent Input.
 - One Activity receives direct input at a time; other vehicles can react to its results.
 - Touching objects causes visible changes. Vehicles travel automatically to activity destinations. Loose rocks support Soft Grab and bounded physical collisions.
 - The Child Stage has no score, countdown, failure state, or ordinary navigation controls.
 - Companion settings remain outside the Child Stage and stay device-local.
 - Keep the vehicle variety, calm play, safety behavior, and public access. The chosen interaction model is direct-touch Free Play: clear the railway, build a bridge, and wash an airplane.
-- Art remains layered 2D or 2.5D rather than true 3D.
+- The Child Stage renders Blender GLB models in a 3D diorama with a fixed camera.
 
 ## Brand commitments
 
@@ -41,7 +41,7 @@ The product name is Dunia Zee and its first Game is Depot Tenang. The interface 
 
 - Current product behavior and terminology are documented in `CONTEXT.md`.
 - The current implementation and the user's screenshots are evidence of layout and motion problems, not visual authority for the redesign.
-- Blender source models, rendered sprites, and measured vehicle geometry live in the repository.
+- Blender source models and exported GLB files live in the repository. Older rendered sprites remain as source assets.
 
 ## Product principles
 
@@ -53,4 +53,4 @@ The product name is Dunia Zee and its first Game is Depot Tenang. The interface 
 
 ## Accessibility & inclusion
 
-The Game must support reduced motion, optional sound, keyboard input, coarse touch targets, and a portrait-orientation guidance state. Required interactions cannot depend on precise dragging or multi-finger gestures.
+The Game must support reduced motion, optional sound, keyboard input, coarse touch targets, and portrait play. Required interactions cannot depend on precise dragging or multi-finger gestures.

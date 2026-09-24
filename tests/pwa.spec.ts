@@ -114,6 +114,8 @@ test.describe("Dunia Zee PWA", () => {
     await context.setOffline(true);
     await page.reload();
     await expect(page.getByTestId("playroom")).toBeVisible();
+    await expect(page.locator(".game-card img").first()).toHaveJSProperty("complete", true);
+    expect(await page.locator(".game-card img").first().evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByRole("button", { name: "Mulai Depot Tenang" })).toBeEnabled();
 
     await page.getByRole("button", { name: "Mulai Depot Tenang" }).click();

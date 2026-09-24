@@ -65,7 +65,7 @@ The first Game in Dunia Zee, a calm vehicle world for clearing a railway, buildi
 _Avoid_: Vehicle lesson
 
 **Diorama**:
-Depot Tenang's shared side-view world, with a road in front, railway in the middle, and sky above.
+Depot Tenang's shared miniature vehicle world, with a road, a railway, and separate vehicle resting places.
 _Avoid_: Map, level, separate scene
 
 **Active Vehicle**:
@@ -119,7 +119,3 @@ _Avoid_: Audio mode, child volume control
 **Reduced Motion**:
 A device-local Companion preference that reduces incidental sway and physical impulses without changing an Activity.
 _Avoid_: Easy mode, static mode
-
-**2.5D art**:
-Layered two-dimensional illustration that uses perspective, depth, and soft shadows while remaining made from flat image assets.
-_Avoid_: 3D model, flat icon

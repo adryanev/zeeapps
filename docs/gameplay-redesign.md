@@ -1,6 +1,6 @@
 # Playground kendaraan untuk Zee
 
-Status: diimplementasikan, 22 September 2026. Target Zee sekitar dua tahun, dikonfirmasi pengguna.
+Status: desain 2D sebelumnya. [ADR 0003](adr/0003-render-depot-tenang-in-3d.md) menjelaskan Game 3D sekarang. Target Zee sekitar dua tahun, dikonfirmasi pengguna.
 
 ## Perubahan
 

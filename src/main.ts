@@ -8,6 +8,7 @@ import {
 } from "./companionSettings";
 import { installCompanionGate } from "./companionGate";
 import { registerServiceWorker } from "./registerServiceWorker";
+import { gameCatalog, type GameId } from "./gameCatalog";
 import {
   createDepotTenangGame,
   type DepotTenangGame,
@@ -20,31 +21,49 @@ if (!app) {
   throw new Error("Dunia Zee requires an app mount.");
 }
 
+const gameCards = gameCatalog.map(game => `
+  <li class="game-list__item">
+    <article class="game-card" data-testid="game-card-${game.id}" aria-labelledby="${game.id}-title">
+      <div class="game-card__art game-card__art--${game.id}" aria-hidden="true">
+        ${game.artwork.decorations.map(part => `<span class="game-card__${part}"></span>`).join("")}
+        ${game.artwork.layers.map(layer => `<img class="game-card__asset game-card__asset--${layer.layer}" src="${import.meta.env.BASE_URL}${layer.image}" alt="" decoding="async" />`).join("")}
+      </div>
+      <div class="game-card__body">
+        <p class="game-card__badge">Siap dimainkan</p>
+        <h3 id="${game.id}-title">${game.title}</h3>
+        <button class="primary-button game-card__launch" data-game-launch="${game.id}" data-testid="${game.id}-card" type="button">${game.launchLabel}</button>
+        <p class="game-card__description">${game.description}</p>
+        <p class="companion-prompt" data-testid="companion-prompt-${game.id}">Main bareng: ${game.companionPrompt}</p>
+      </div>
+    </article>
+  </li>
+`).join("");
+
 app.innerHTML = `
   <main class="playroom-shell">
     <section class="playroom" data-testid="playroom" aria-labelledby="playroom-title">
       <div class="playroom__header">
         <p class="eyebrow">Dunia Zee</p>
-        <h1 id="playroom-title">Playroom</h1>
-        <p class="playroom__intro">Pilih satu Game untuk menemani Explorer menjelajah.</p>
+        <h1 id="playroom-title">Mau main apa hari ini?</h1>
+        <p class="playroom__intro">Pilih permainan, lalu sentuh apa saja yang menarik perhatianmu.</p>
         <div class="service-worker-error" data-testid="service-worker-error" role="alert" hidden>
           <p>Offline support sedang tidak tersedia. Companion tetap bisa bermain online.</p>
           <button class="secondary-button" data-testid="service-worker-retry" type="button">Coba lagi</button>
         </div>
       </div>
-      <article class="game-card" aria-labelledby="depot-title">
-        <div class="game-card__art" aria-hidden="true">
-          <span class="game-card__sun"></span>
-          <span class="game-card__road"></span>
-          <span class="game-card__vehicle">🚚</span>
-        </div>
-        <div class="game-card__body">
-          <p class="eyebrow">Game pertama</p>
-          <h2 id="depot-title">Depot Tenang</h2>
-          <p>Batu menggelinding, kereta lewat, dan pesawat bersih kembali. Sentuh mainannya dan lihat apa yang terjadi.</p>
-          <p class="companion-prompt" data-testid="companion-prompt">
-            Companion: lihat, ada batu di rel! Apa yang terjadi kalau kita pindahkan?
-          </p>
+      <div class="playroom__content">
+        <section class="game-library" aria-labelledby="game-library-title">
+          <div class="game-library__heading">
+            <h2 id="game-library-title">Pilih permainan</h2>
+            <span>${gameCatalog.length} tersedia</span>
+          </div>
+          <ul class="game-list${gameCatalog.length === 1 ? " game-list--single" : ""}" data-testid="game-list">${gameCards}</ul>
+          <p class="game-library__note">Permainan baru akan muncul di sini.</p>
+        </section>
+        <aside class="playroom__companion" aria-labelledby="companion-title">
+          <p class="eyebrow">Untuk Companion</p>
+          <h2 id="companion-title">Atur sebelum bermain</h2>
+          <p>Pilih suara dan gerakan yang nyaman. Pengaturan ini berlaku untuk semua permainan di perangkat ini.</p>
           <section class="companion-settings" data-testid="companion-settings" aria-labelledby="settings-title">
             <h3 id="settings-title">Companion settings</h3>
             <p class="settings-storage-error" data-testid="settings-storage-error" role="alert" hidden>
@@ -70,11 +89,8 @@ app.innerHTML = `
               Reduced Motion
             </label>
           </section>
-          <button class="primary-button" data-testid="depot-tenang-card" type="button">
-            Mulai Depot Tenang
-          </button>
-        </div>
-      </article>
+        </aside>
+      </div>
     </section>
 
     <section
@@ -118,15 +134,12 @@ app.innerHTML = `
       </div>
       <div class="free-play-controls" hidden>
         <div class="activity-picker" role="group" aria-label="Pilih tempat bermain">
-          <button type="button" data-activity="rocks" aria-label="Bermain batu dan kereta" aria-pressed="true"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mining-dump-body.png" alt="" /><span>Batu & kereta</span></button>
-          <button type="button" data-activity="build" aria-label="Bangun jembatan" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mixer-body.png" alt="" /><span>Bangun jembatan</span></button>
-          <button type="button" data-activity="wash" aria-label="Cuci pesawat" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/airplane-body.png" alt="" /><span>Cuci pesawat</span></button>
+          <button type="button" data-activity="rocks" aria-label="Bermain batu dan kereta" aria-pressed="true"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mining-dump-body.webp" alt="" /><span>Batu & kereta</span></button>
+          <button type="button" data-activity="build" aria-label="Bangun jembatan" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/truck-mixer-body.webp" alt="" /><span>Bangun jembatan</span></button>
+          <button type="button" data-activity="wash" aria-label="Cuci pesawat" aria-pressed="false"><img src="${import.meta.env.BASE_URL}assets/depot-tenang-v2/airplane-body.webp" alt="" /><span>Cuci pesawat</span></button>
         </div>
         <button type="button" class="accessible-action" data-testid="vehicle-action">Mainkan benda yang disorot</button>
       </div>
-      <p class="portrait-guidance" data-testid="portrait-guidance" role="status">
-        Putar perangkat ke posisi landscape untuk bermain lebih nyaman.
-      </p>
       <div class="companion-gate-touch companion-gate-touch--left" data-testid="companion-gate-touch-left" aria-hidden="true"></div>
       <div class="companion-gate-touch companion-gate-touch--right" data-testid="companion-gate-touch-right" aria-hidden="true"></div>
       <section
@@ -329,8 +342,12 @@ gameLoadRetry.addEventListener("click", () => {
 });
 gameLoadReturn.addEventListener("click", returnToPlayroom);
 
-startButton.addEventListener("click", () => {
-  void startDepotTenang();
+const gameLaunchers: Record<GameId, () => void> = {
+  "depot-tenang": () => { void startDepotTenang(); },
+};
+document.querySelectorAll<HTMLButtonElement>("[data-game-launch]").forEach(button => {
+  const launch = gameLaunchers[button.dataset.gameLaunch as GameId];
+  button.addEventListener("click", launch);
 });
 
 document.querySelectorAll<HTMLButtonElement>("[data-activity]").forEach(button => {

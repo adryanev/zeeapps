@@ -9,7 +9,7 @@ test.describe("Playwright preview configuration", () => {
   });
 
   test("accepts a bounded numeric port and falls back when unset", () => {
-    expect(parsePlaywrightPort(undefined)).toBe(4173);
+    expect(parsePlaywrightPort(undefined)).toBe(4301);
     expect(parsePlaywrightPort("49152")).toBe(49152);
     expect(() => parsePlaywrightPort("65536")).toThrow(
       "PLAYWRIGHT_PORT must be an integer between 1 and 65535",
