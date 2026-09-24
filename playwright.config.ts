@@ -6,7 +6,7 @@ const previewPort = parsePlaywrightPort(process.env.PLAYWRIGHT_PORT);
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
-  // Depot Tenang renders Phaser/WebGL timing assertions; parallel browser workers
+  // Depot Tenang renders WebGL timing assertions; parallel browser workers
   // contend for one GPU and can manufacture journey timeouts that a single game cannot hit.
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
@@ -17,9 +17,9 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: `npm run preview -- --host 127.0.0.1 --port ${previewPort}`,
+    command: `npm run preview -- --host 127.0.0.1 --port ${previewPort} --strictPort`,
     url: `http://127.0.0.1:${previewPort}`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
   },
   projects: [
     {

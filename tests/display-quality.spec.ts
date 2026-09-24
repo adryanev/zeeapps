@@ -1,20 +1,19 @@
 import { expect, test } from "@playwright/test";
-import { startFreePlay } from "./freePlayHelpers";
+import { attachWorld, startFreePlay, tapModel } from "./freePlayHelpers";
 
 test.use({viewport:{width:2560,height:1440}});
 test("large screens render at their displayed pixel size and retain touch coordinates", async ({page})=>{
   await startFreePlay(page);
+  await attachWorld(page);
   const size=await page.locator("canvas").evaluate(canvas=>({
     pixels:(canvas as HTMLCanvasElement).width,
     displayed:canvas.getBoundingClientRect().width*window.devicePixelRatio,
   }));
   expect(size.pixels).toBeGreaterThanOrEqual(Math.floor(size.displayed));
-  const b=(await page.locator("canvas").boundingBox())!;
-  await page.mouse.click(b.x+535*b.width/960,b.y+192*b.height/540);
+  await tapModel(page, "rock", 0);
   await expect(page.getByTestId("child-stage")).toHaveAttribute("data-load","1");
   await page.setViewportSize({width:844,height:390});
-  const small=(await page.locator("canvas").boundingBox())!;
-  await page.mouse.click(small.x+601*small.width/960,small.y+192*small.height/540);
+  await tapModel(page, "rock", 1);
   await expect(page.getByTestId("child-stage")).toHaveAttribute("data-load","2");
 });
 

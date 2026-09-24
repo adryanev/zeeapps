@@ -13,6 +13,10 @@ const SHELL_RESOURCES = [
   resolveAppPath("icons/icon.svg"),
   resolveAppPath("icons/icon-192.svg"),
   resolveAppPath("icons/icon-512.svg"),
+  resolveAppPath("assets/depot-tenang-v2/train-locomotive-sol.webp"),
+  resolveAppPath("assets/depot-tenang-v2/truck-mixer-body.webp"),
+  resolveAppPath("assets/depot-tenang-v2/truck-mining-dump-body.webp"),
+  resolveAppPath("assets/depot-tenang-v2/airplane-body.webp"),
 ];
 
 self.addEventListener("install", (event) => {

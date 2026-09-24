@@ -1,6 +1,6 @@
 # Dunia Zee
 
-Dunia Zee is a hosted Playroom for calm, shared Games. The first Game is Depot Tenang, a playground with large Blender-rendered vehicles and three repeatable touch activities.
+Dunia Zee is a hosted Playroom for calm, shared Games. The first Game is Depot Tenang, a 3D playground with Blender vehicles and three repeatable touch activities.
 
 ## Commands
 
@@ -34,7 +34,7 @@ Run the browser test against the production preview:
 npm run test
 ```
 
-The test command creates a production build, starts its preview server on `http://127.0.0.1:4173`, and runs the browser tests.
+The test command creates a production build, starts its preview server on `http://127.0.0.1:4301`, and runs the browser tests. Set `PLAYWRIGHT_PORT` to use another free port.
 
 ## Equivalent Input
 
@@ -48,4 +48,4 @@ Touch the supply box to repeat an activity. Space or Enter performs the next act
 
 Hold Shift+Enter to open the Companion Gate. Touch devices use a hold on both upper corners. The gate pauses the world.
 
-See [the fleet build guide](assets-source/blender/depot-tenang/README.md) for Blender sources, generated geometry, and the limits of the 2.5D physics.
+Depot Tenang renders Blender GLB models with Three.js. Rapier 3D simulates loose stones and blocks. See [the asset build guide](assets-source/blender/depot-tenang/README.md) for source files and export commands.
