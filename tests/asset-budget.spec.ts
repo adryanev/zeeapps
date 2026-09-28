@@ -8,18 +8,19 @@ test("Playroom thumbnails stay below 500 KB combined", async ({ page }) => {
   await page.goto("/");
   const displayedSources = await page.locator(".game-card img, .activity-picker img")
     .evaluateAll(images => images.map(image => (image as HTMLImageElement).src));
-  expect(displayedSources).toHaveLength(6);
-  expect(displayedSources.every(source => source.endsWith(".webp"))).toBe(true);
-  const previews = [
-    "train-locomotive-sol.webp",
-    "truck-mixer-body.webp",
-    "truck-mining-dump-body.webp",
-    "airplane-body.webp",
-  ];
+  const previews = [...new Set(displayedSources.map(source => new URL(source).pathname.split("/assets/")[1]))];
+  expect(previews.every(name => name && /\.(webp|svg)$/.test(name))).toBe(true);
   const bytes = await Promise.all(previews.map(async name =>
-    (await stat(join(publicAssets, "depot-tenang-v2", name))).size,
+    (await stat(join(publicAssets, name))).size,
   ));
   expect(bytes.reduce((sum, size) => sum + size, 0)).toBeLessThan(500_000);
+});
+
+test("Cilukba Hewan assets stay below 300 KB combined", async () => {
+  const assets = join(publicAssets, "cilukba-hewan");
+  const names = await readdir(assets);
+  const bytes = await Promise.all(names.map(async name => (await stat(join(assets, name))).size));
+  expect(bytes.reduce((sum, size) => sum + size, 0)).toBeLessThan(300_000);
 });
 
 test("Depot 3D models stay below 1 MB combined", async () => {
