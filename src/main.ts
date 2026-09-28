@@ -110,6 +110,7 @@ app.innerHTML = `
           <span class="game-status" data-testid="game-status">Depot sedang dibuka</span>
           <span class="load-status" data-testid="load-status"></span>
         </div>
+        <button class="fullscreen-toggle" data-testid="fullscreen-toggle" type="button">Layar penuh</button>
       </header>
       <div
         id="game-mount"
@@ -166,6 +167,19 @@ app.innerHTML = `
 
 const playroom = getRequiredElement<HTMLElement>("[data-testid='playroom']");
 const childStage = getRequiredElement<HTMLElement>("[data-testid='child-stage']");
+const fullscreenToggle = getRequiredElement<HTMLButtonElement>("[data-testid='fullscreen-toggle']");
+if (!childStage.requestFullscreen) fullscreenToggle.textContent = "Cara layar penuh";
+fullscreenToggle.addEventListener("click", () => {
+  if (!childStage.requestFullscreen) {
+    window.alert("Di Safari iPhone, ketuk Bagikan → Tambahkan ke Layar Utama, lalu buka Dunia Zee dari ikonnya untuk bermain tanpa bar Safari.");
+    return;
+  }
+  if (document.fullscreenElement === childStage) void document.exitFullscreen();
+  else void childStage.requestFullscreen();
+});
+document.addEventListener("fullscreenchange", () => {
+  fullscreenToggle.textContent = document.fullscreenElement === childStage ? "Keluar layar penuh" : "Layar penuh";
+});
 const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-tenang-card']");
 const serviceWorkerError = getRequiredElement<HTMLElement>("[data-testid='service-worker-error']");
 const serviceWorkerRetry = getRequiredElement<HTMLButtonElement>("[data-testid='service-worker-retry']");
@@ -507,6 +521,7 @@ function closeCompanionGate(): void {
 
 function returnToPlayroom(): void {
   closeCompanionGate();
+  if (document.fullscreenElement === childStage) void document.exitFullscreen();
   game?.destroy(true);
   game = undefined;
   isGameLoading = false;

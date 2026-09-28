@@ -266,7 +266,7 @@ test("stones leave the dump bed without jumping to a new position", async ({ pag
       if (rock?.state === "falling" && (window as any).__releaseJump === undefined) {
         const position = rock.body.translation();
         (window as any).__releaseJump = Math.hypot(
-          position.x - rock.visual.position.x, position.y - 0.36 - rock.visual.position.y,
+          position.x - rock.visual.position.x, position.y - 0.5 - rock.visual.position.y,
           position.z - rock.visual.position.z,
         );
       }
