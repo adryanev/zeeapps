@@ -42,6 +42,17 @@ export const gameCatalog = [
       ],
     },
   },
+  {
+    id: "ketuk-ketuk",
+    title: "Ketuk-Ketuk",
+    description: "Tekan tombol keyboard atau ketuk layar. Monster kecil ini akan melompat dan berkicau!",
+    companionPrompt: "Coba tekan tombol bersama. Wajah apa yang dibuat monster?",
+    launchLabel: "Mulai Ketuk-Ketuk",
+    artwork: {
+      decorations: ["ketuk-monster", "ketuk-bubble"],
+      layers: [],
+    },
+  },
 ] as const satisfies readonly GameDefinition[];
 
 export type GameId = (typeof gameCatalog)[number]["id"];

@@ -16,6 +16,7 @@ import {
 import type { FreePlaySnapshot, PlayActivity } from "./game/depotTenangTypes";
 
 import type { CilukbaGame } from "./game/cilukbaHewan";
+import type { KetukGame } from "./game/ketukKetuk";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -184,6 +185,7 @@ document.addEventListener("fullscreenchange", () => {
 });
 const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-tenang-card']");
 const cilukbaStartButton = getRequiredElement<HTMLButtonElement>("[data-testid='cilukba-hewan-card']");
+const ketukStartButton = getRequiredElement<HTMLButtonElement>("[data-testid='ketuk-ketuk-card']");
 const serviceWorkerError = getRequiredElement<HTMLElement>("[data-testid='service-worker-error']");
 const serviceWorkerRetry = getRequiredElement<HTMLButtonElement>("[data-testid='service-worker-retry']");
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
@@ -237,8 +239,10 @@ reducedMotionInput.addEventListener("change", () => {
 
 let game: DepotTenangGame | undefined;
 let cilukbaGame: CilukbaGame | undefined;
+let ketukGame: KetukGame | undefined;
 let activeGameId: GameId | undefined;
 let cilukbaLoadAttempt = 0;
+let ketukLoadAttempt = 0;
 let isGameLoading = false;
 let isGameReady = false;
 let isCompanionGateOpen = false;
@@ -359,6 +363,7 @@ companionGateContinue.addEventListener("click", closeCompanionGate);
 companionGateReturn.addEventListener("click", returnToPlayroom);
 gameLoadRetry.addEventListener("click", () => {
   if (activeGameId === "cilukba-hewan") void startCilukbaHewan();
+  else if (activeGameId === "ketuk-ketuk") void startKetukKetuk();
   else void startDepotTenang();
 });
 gameLoadReturn.addEventListener("click", returnToPlayroom);
@@ -366,6 +371,7 @@ gameLoadReturn.addEventListener("click", returnToPlayroom);
 const gameLaunchers: Record<GameId, () => void> = {
   "depot-tenang": () => { void startDepotTenang(); },
   "cilukba-hewan": () => { void startCilukbaHewan(); },
+  "ketuk-ketuk": () => { void startKetukKetuk(); },
 };
 document.querySelectorAll<HTMLButtonElement>("[data-game-launch]").forEach(button => {
   const launch = gameLaunchers[button.dataset.gameLaunch as GameId];
@@ -387,11 +393,12 @@ document.addEventListener("visibilitychange", () => {
   if (isGameReady) {
     game?.setPaused(document.hidden || isCompanionGateOpen);
     cilukbaGame?.setPaused(document.hidden || isCompanionGateOpen);
+    ketukGame?.setPaused(document.hidden || isCompanionGateOpen);
   }
 });
 
 async function startDepotTenang(): Promise<void> {
-  if (game || cilukbaGame || isGameLoading) {
+  if (game || cilukbaGame || ketukGame || isGameLoading) {
     return;
   }
 
@@ -463,7 +470,7 @@ async function startDepotTenang(): Promise<void> {
 }
 
 async function startCilukbaHewan(): Promise<void> {
-  if (game || cilukbaGame || isGameLoading) return;
+  if (game || cilukbaGame || ketukGame || isGameLoading) return;
 
   const attempt = ++cilukbaLoadAttempt;
   isGameLoading = true;
@@ -516,6 +523,65 @@ async function startCilukbaHewan(): Promise<void> {
     }
   } finally {
     if (attempt === cilukbaLoadAttempt) {
+      childStage.setAttribute("aria-busy", "false");
+      isGameLoading = false;
+    }
+  }
+}
+
+async function startKetukKetuk(): Promise<void> {
+  if (game || cilukbaGame || ketukGame || isGameLoading) return;
+
+  const attempt = ++ketukLoadAttempt;
+  isGameLoading = true;
+  isGameReady = false;
+  activeGameId = "ketuk-ketuk";
+  childStage.dataset.game = "ketuk-ketuk";
+  childStage.dataset.soundProfile = companionSettings.soundProfile;
+  childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
+  getRequiredElement<HTMLElement>("[data-testid='stage-title']").textContent = "Ketuk-Ketuk";
+  gameMount.setAttribute("role", "group");
+  gameMount.setAttribute("aria-label", "Ketuk-Ketuk. Tekan tombol atau ketuk layar untuk mengajak monster bermain.");
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-title']").textContent = "Ketuk-Ketuk";
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-message']").textContent = "Monster kecil sedang bersiap bermain.";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-title']").textContent = "Ketuk-Ketuk";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-heading']").textContent = "Monster belum siap";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-message']").textContent = "Companion, Ketuk-Ketuk belum bisa dibuka. Coba lagi atau kembali ke Playroom.";
+  ketukStartButton.disabled = true;
+  playroom.hidden = true;
+  childStage.hidden = false;
+  childStage.setAttribute("aria-busy", "true");
+  gameLoading.hidden = false;
+  gameLoadError.hidden = true;
+  gameStatus.textContent = "Ketuk-Ketuk sedang dimuat";
+  playControls.hidden = true;
+
+  try {
+    handleServiceWorkerStatus(await serviceWorkerReady);
+    const { loadKetukKetuk } = await import("./game/ketukKetuk");
+    if (attempt !== ketukLoadAttempt) return;
+    const loaded = loadKetukKetuk({
+      parent: gameMount,
+      reducedMotion: companionSettings.reducedMotion,
+      volume: getSoundProfileVolume(companionSettings.soundProfile),
+    });
+    if (attempt !== ketukLoadAttempt) {
+      loaded.destroy();
+      return;
+    }
+    ketukGame = loaded;
+    isGameReady = true;
+    loaded.setPaused(isCompanionGateOpen || document.hidden);
+    gameLoading.hidden = true;
+    gameMount.focus();
+  } catch {
+    if (attempt === ketukLoadAttempt) {
+      gameLoading.hidden = true;
+      gameLoadError.hidden = false;
+      gameStatus.textContent = "Monster belum siap. Coba lagi.";
+    }
+  } finally {
+    if (attempt === ketukLoadAttempt) {
       childStage.setAttribute("aria-busy", "false");
       isGameLoading = false;
     }
@@ -591,6 +657,7 @@ function openCompanionGate(): void {
   if (isGameReady) {
     game?.setPaused(true);
     cilukbaGame?.setPaused(true);
+    ketukGame?.setPaused(true);
   }
   companionGate.hidden = false;
   companionGateContinue.focus();
@@ -601,6 +668,7 @@ function closeCompanionGate(): void {
   if (isGameReady) {
     game?.setPaused(false);
     cilukbaGame?.setPaused(false);
+    ketukGame?.setPaused(false);
   }
   companionGate.hidden = true;
   gameMount.focus();
@@ -610,10 +678,13 @@ function returnToPlayroom(): void {
   closeCompanionGate();
   if (document.fullscreenElement === childStage) void document.exitFullscreen();
   cilukbaLoadAttempt += 1;
+  ketukLoadAttempt += 1;
   game?.destroy(true);
   cilukbaGame?.destroy();
+  ketukGame?.destroy();
   game = undefined;
   cilukbaGame = undefined;
+  ketukGame = undefined;
   activeGameId = undefined;
   isGameLoading = false;
   isGameReady = false;
@@ -623,6 +694,7 @@ function returnToPlayroom(): void {
   playroom.hidden = false;
   startButton.disabled = false;
   cilukbaStartButton.disabled = false;
+  ketukStartButton.disabled = false;
   gameLoading.hidden = true;
   gameLoadError.hidden = true;
   gameStatus.textContent = "Depot sedang dibuka";
