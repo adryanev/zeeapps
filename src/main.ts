@@ -15,6 +15,8 @@ import {
 } from "./game/depotTenangGameFactory";
 import type { FreePlaySnapshot, PlayActivity } from "./game/depotTenangTypes";
 
+import type { CilukbaGame } from "./game/cilukbaHewan";
+
 const app = document.querySelector<HTMLDivElement>("#app");
 
 if (!app) {
@@ -57,8 +59,7 @@ app.innerHTML = `
             <h2 id="game-library-title">Pilih permainan</h2>
             <span>${gameCatalog.length} tersedia</span>
           </div>
-          <ul class="game-list${gameCatalog.length === 1 ? " game-list--single" : ""}" data-testid="game-list">${gameCards}</ul>
-          <p class="game-library__note">Permainan baru akan muncul di sini.</p>
+          <ul class="game-list" data-testid="game-list">${gameCards}</ul>
         </section>
         <aside class="playroom__companion" aria-labelledby="companion-title">
           <p class="eyebrow">Untuk Companion</p>
@@ -89,6 +90,7 @@ app.innerHTML = `
               Reduced Motion
             </label>
           </section>
+          <p><a href="${import.meta.env.BASE_URL}assets/cilukba-hewan/credits.html">Kredit suara Cilukba Hewan</a></p>
         </aside>
       </div>
     </section>
@@ -120,13 +122,13 @@ app.innerHTML = `
         aria-label="Depot Tenang. Sentuh benda yang berlingkar cahaya. Spasi atau Enter memainkan benda berikutnya."
       >
         <div class="game-loading" data-testid="game-loading" role="status" aria-live="polite" hidden>
-          <p class="eyebrow">Depot Tenang</p>
-          <p>Depot sedang disiapkan untuk bermain.</p>
+          <p class="eyebrow" data-testid="game-loading-title">Depot Tenang</p>
+          <p data-testid="game-loading-message">Depot sedang disiapkan untuk bermain.</p>
         </div>
         <div class="game-load-error" data-testid="game-load-error" role="alert" hidden>
-          <p class="eyebrow">Depot Tenang</p>
-          <h2>Depot belum siap</h2>
-          <p>Companion, Depot belum bisa dibuka. Coba lagi atau kembali ke Playroom.</p>
+          <p class="eyebrow" data-testid="game-load-error-title">Depot Tenang</p>
+          <h2 data-testid="game-load-error-heading">Depot belum siap</h2>
+          <p data-testid="game-load-error-message">Companion, Depot belum bisa dibuka. Coba lagi atau kembali ke Playroom.</p>
           <div class="game-load-error__actions">
             <button class="primary-button" data-testid="game-load-retry" type="button">Coba lagi</button>
             <button class="secondary-button" data-testid="game-load-return" type="button">Return to Playroom</button>
@@ -181,6 +183,7 @@ document.addEventListener("fullscreenchange", () => {
   fullscreenToggle.textContent = document.fullscreenElement === childStage ? "Keluar layar penuh" : "Layar penuh";
 });
 const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-tenang-card']");
+const cilukbaStartButton = getRequiredElement<HTMLButtonElement>("[data-testid='cilukba-hewan-card']");
 const serviceWorkerError = getRequiredElement<HTMLElement>("[data-testid='service-worker-error']");
 const serviceWorkerRetry = getRequiredElement<HTMLButtonElement>("[data-testid='service-worker-retry']");
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
@@ -233,6 +236,9 @@ reducedMotionInput.addEventListener("change", () => {
 });
 
 let game: DepotTenangGame | undefined;
+let cilukbaGame: CilukbaGame | undefined;
+let activeGameId: GameId | undefined;
+let cilukbaLoadAttempt = 0;
 let isGameLoading = false;
 let isGameReady = false;
 let isCompanionGateOpen = false;
@@ -352,12 +358,14 @@ for (const eventName of ["touchstart", "touchmove", "touchend", "touchcancel"] a
 companionGateContinue.addEventListener("click", closeCompanionGate);
 companionGateReturn.addEventListener("click", returnToPlayroom);
 gameLoadRetry.addEventListener("click", () => {
-  void startDepotTenang();
+  if (activeGameId === "cilukba-hewan") void startCilukbaHewan();
+  else void startDepotTenang();
 });
 gameLoadReturn.addEventListener("click", returnToPlayroom);
 
 const gameLaunchers: Record<GameId, () => void> = {
   "depot-tenang": () => { void startDepotTenang(); },
+  "cilukba-hewan": () => { void startCilukbaHewan(); },
 };
 document.querySelectorAll<HTMLButtonElement>("[data-game-launch]").forEach(button => {
   const launch = gameLaunchers[button.dataset.gameLaunch as GameId];
@@ -376,16 +384,29 @@ actionButton.addEventListener("click", () => {
   gameMount.focus();
 });
 document.addEventListener("visibilitychange", () => {
-  if (isGameReady) game?.setPaused(document.hidden || isCompanionGateOpen);
+  if (isGameReady) {
+    game?.setPaused(document.hidden || isCompanionGateOpen);
+    cilukbaGame?.setPaused(document.hidden || isCompanionGateOpen);
+  }
 });
 
 async function startDepotTenang(): Promise<void> {
-  if (game || isGameLoading) {
+  if (game || cilukbaGame || isGameLoading) {
     return;
   }
 
   isGameLoading = true;
   isGameReady = false;
+  activeGameId = "depot-tenang";
+  childStage.dataset.game = "depot-tenang";
+  getRequiredElement<HTMLElement>("[data-testid='stage-title']").textContent = "Depot Tenang";
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-title']").textContent = "Depot Tenang";
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-message']").textContent = "Depot sedang disiapkan untuk bermain.";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-title']").textContent = "Depot Tenang";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-heading']").textContent = "Depot belum siap";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-message']").textContent = "Companion, Depot belum bisa dibuka. Coba lagi atau kembali ke Playroom.";
+  gameMount.setAttribute("role", "application");
+  gameMount.setAttribute("aria-label", "Depot Tenang. Sentuh benda yang berlingkar cahaya. Spasi atau Enter memainkan benda berikutnya.");
   activateAudio(companionSettings.soundProfile);
   childStage.dataset.soundProfile = companionSettings.soundProfile;
   childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
@@ -438,6 +459,66 @@ async function startDepotTenang(): Promise<void> {
   } finally {
     childStage.setAttribute("aria-busy", "false");
     isGameLoading = false;
+  }
+}
+
+async function startCilukbaHewan(): Promise<void> {
+  if (game || cilukbaGame || isGameLoading) return;
+
+  const attempt = ++cilukbaLoadAttempt;
+  isGameLoading = true;
+  isGameReady = false;
+  activeGameId = "cilukba-hewan";
+  childStage.dataset.game = "cilukba-hewan";
+  childStage.dataset.soundProfile = companionSettings.soundProfile;
+  childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
+  getRequiredElement<HTMLElement>("[data-testid='stage-title']").textContent = "Cilukba Hewan";
+  gameMount.setAttribute("role", "group");
+  gameMount.setAttribute("aria-label", "Cilukba Hewan. Ketuk tempat persembunyian untuk menemukan hewan.");
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-title']").textContent = "Cilukba Hewan";
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-message']").textContent = "Hewan sedang bersiap bermain.";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-title']").textContent = "Cilukba Hewan";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-heading']").textContent = "Hewan belum siap";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-message']").textContent = "Companion, Cilukba Hewan belum bisa dibuka. Coba lagi atau kembali ke Playroom.";
+  cilukbaStartButton.disabled = true;
+  playroom.hidden = true;
+  childStage.hidden = false;
+  childStage.setAttribute("aria-busy", "true");
+  gameLoading.hidden = false;
+  gameLoadError.hidden = true;
+  gameStatus.textContent = "Cilukba Hewan sedang dimuat";
+  playControls.hidden = true;
+
+  try {
+    handleServiceWorkerStatus(await serviceWorkerReady);
+    const { loadCilukbaHewan } = await import("./game/cilukbaHewan");
+    if (attempt !== cilukbaLoadAttempt) return;
+    const loaded = await loadCilukbaHewan({
+      parent: gameMount,
+      reducedMotion: companionSettings.reducedMotion,
+      volume: getSoundProfileVolume(companionSettings.soundProfile),
+      onStatus: status => { gameStatus.textContent = status; },
+    });
+    if (attempt !== cilukbaLoadAttempt) {
+      loaded.destroy();
+      return;
+    }
+    cilukbaGame = loaded;
+    isGameReady = true;
+    loaded.setPaused(isCompanionGateOpen || document.hidden);
+    gameLoading.hidden = true;
+    gameMount.focus();
+  } catch {
+    if (attempt === cilukbaLoadAttempt) {
+      gameLoading.hidden = true;
+      gameLoadError.hidden = false;
+      gameStatus.textContent = "Hewan belum siap. Coba lagi.";
+    }
+  } finally {
+    if (attempt === cilukbaLoadAttempt) {
+      childStage.setAttribute("aria-busy", "false");
+      isGameLoading = false;
+    }
   }
 }
 
@@ -507,14 +588,20 @@ function openCompanionGate(): void {
   }
 
   isCompanionGateOpen = true;
-  if (isGameReady) game?.setPaused(true);
+  if (isGameReady) {
+    game?.setPaused(true);
+    cilukbaGame?.setPaused(true);
+  }
   companionGate.hidden = false;
   companionGateContinue.focus();
 }
 
 function closeCompanionGate(): void {
   isCompanionGateOpen = false;
-  if (isGameReady) game?.setPaused(false);
+  if (isGameReady) {
+    game?.setPaused(false);
+    cilukbaGame?.setPaused(false);
+  }
   companionGate.hidden = true;
   gameMount.focus();
 }
@@ -522,8 +609,12 @@ function closeCompanionGate(): void {
 function returnToPlayroom(): void {
   closeCompanionGate();
   if (document.fullscreenElement === childStage) void document.exitFullscreen();
+  cilukbaLoadAttempt += 1;
   game?.destroy(true);
+  cilukbaGame?.destroy();
   game = undefined;
+  cilukbaGame = undefined;
+  activeGameId = undefined;
   isGameLoading = false;
   isGameReady = false;
 
@@ -531,6 +622,7 @@ function returnToPlayroom(): void {
   childStage.setAttribute("aria-busy", "false");
   playroom.hidden = false;
   startButton.disabled = false;
+  cilukbaStartButton.disabled = false;
   gameLoading.hidden = true;
   gameLoadError.hidden = true;
   gameStatus.textContent = "Depot sedang dibuka";

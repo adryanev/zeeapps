@@ -27,6 +27,21 @@ export const gameCatalog = [
       ],
     },
   },
+  {
+    id: "cilukba-hewan",
+    title: "Cilukba Hewan",
+    description: "Temukan hewan yang bersembunyi. Ketuk untuk melihat dan mendengar mereka!",
+    companionPrompt: "Ada siapa di balik semak? Yuk, lihat bersama!",
+    launchLabel: "Mulai Cilukba Hewan",
+    artwork: {
+      decorations: [],
+      layers: [
+        { image: "assets/cilukba-hewan/cat.svg", layer: "cat" },
+        { image: "assets/cilukba-hewan/rabbit.svg", layer: "rabbit" },
+        { image: "assets/cilukba-hewan/bush.svg", layer: "bush" },
+      ],
+    },
+  },
 ] as const satisfies readonly GameDefinition[];
 
 export type GameId = (typeof gameCatalog)[number]["id"];

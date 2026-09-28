@@ -64,6 +64,10 @@ _Avoid_: Challenge mode, test
 The first Game in Dunia Zee, a calm vehicle world for clearing a railway, building a bridge, and washing an airplane.
 _Avoid_: Vehicle lesson
 
+**Cilukba Hewan**:
+A calm Game where the Explorer finds familiar animals behind pictured hiding places and repeats their reactions.
+_Avoid_: Animal lesson, quiz
+
 **Diorama**:
 Depot Tenang's shared miniature vehicle world, with a road, a railway, and separate vehicle resting places.
 _Avoid_: Map, level, separate scene
