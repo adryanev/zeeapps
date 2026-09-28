@@ -46,8 +46,33 @@ test("three fast mold taps queue pours, complete a bridge, and let the cargo tru
   await startFreePlay(page);
   await attachWorld(page);
   await page.getByRole("button", { name: "Bangun jembatan", exact: true }).click();
+  const crossing = await page.evaluate(() => {
+    const world = (window as any).__fleetWorld;
+    const river = world.scene.getObjectByName("Bridge_River");
+    return {
+      riverVisible: river?.visible,
+      underDeck: river?.position.y < world.forms[1].position.y,
+      openSpan: world.forms[1].getObjectByName("Form_base")?.visible === false,
+      roadGap: world.scene.getObjectByName("Road_Crossing")?.visible === false,
+      cargoOnRoad: Math.abs(world.cargo.position.z - world.truck.position.z) < 0.1,
+      formsOnRoad: world.forms.every((form: any) => Math.abs(form.position.z - world.truck.position.z) < 1.5),
+      riverCut: world.felt?.visible === false,
+      fishCount: world.scene.getObjectByName("Bridge_Fish")?.children.length ?? 0,
+    };
+  });
+  expect(crossing).toEqual({ riverVisible: true, underDeck: true, openSpan: true, roadGap: true, cargoOnRoad: true, formsOnRoad: true, riverCut: true, fishCount: 4 });
+  const swim = await page.evaluate(() => {
+    const world = (window as any).__fleetWorld;
+    const fish = world.scene.getObjectByName("Bridge_Fish").children;
+    const before = fish.map((item: any) => item.position.z);
+    world.update(0.5);
+    return Math.max(...fish.map((item: any, index: number) => Math.abs(item.position.z - before[index])));
+  });
+  expect(swim).toBeGreaterThan(0.02);
   for (let index = 0; index < 3; index++) await tapModel(page, "form", index);
   await expect(page.getByTestId("child-stage")).toHaveAttribute("data-bridge", "3", { timeout: 18_000 });
+  expect(await page.evaluate(() => (window as any).__fleetWorld.concrete.every((deck: any) => deck.visible && deck.position.y > 0.4))).toBe(true);
+  expect(await page.evaluate(() => (window as any).__fleetWorld.forms.every((form: any) => form.getObjectByName("Concrete_Form")?.visible === false))).toBe(true);
   await expect.poll(() => page.evaluate(() => (window as any).__fleetWorld.cargoX)).toBeGreaterThan(-10);
   await expect(page.getByTestId("game-status")).toHaveText("Jembatan jadi! Truk bisa lewat");
   await page.locator("#game-mount").focus();
@@ -59,12 +84,32 @@ test("washing clears five visible patches, launches the plane, and can repeat", 
   await startFreePlay(page);
   await attachWorld(page);
   await page.getByRole("button", { name: "Cuci pesawat", exact: true }).click();
+  expect(await page.evaluate(() => {
+    const world = (window as any).__fleetWorld;
+    return {
+      apron: world.scene.getObjectByName("Airport_Apron")?.visible,
+      runway: world.scene.getObjectByName("Airport_Runway")?.visible,
+      railBed: world.railBed.visible,
+      bridge: world.bridgeSite.visible,
+      hangar: world.restingPlaces.wash.visible,
+    };
+  })).toEqual({ apron: true, runway: true, railBed: false, bridge: false, hangar: true });
   for (let index = 0; index < 5; index++) await tapModel(page, "mud", index);
   await expect(page.getByTestId("child-stage")).toHaveAttribute("data-dirty", "0");
   await expect.poll(() => page.evaluate(() => (window as any).__fleetWorld.airplane.position.y), { timeout: 5_000 }).toBeGreaterThan(0.3);
   await tapModel(page, "supply");
   await expect(page.getByTestId("child-stage")).toHaveAttribute("data-dirty", "5");
   expect(await page.evaluate(() => (window as any).__fleetWorld.flight)).toBe(0);
+  await page.getByRole("button", { name: "Bangun jembatan", exact: true }).click();
+  expect(await page.evaluate(() => {
+    const world = (window as any).__fleetWorld;
+    return [world.airportSite.visible, world.bridgeSite.visible, world.rail.visible, world.railBed.visible, world.restingPlaces.build.visible];
+  })).toEqual([false, true, false, false, true]);
+  await page.getByRole("button", { name: "Bermain batu dan kereta", exact: true }).click();
+  expect(await page.evaluate(() => {
+    const world = (window as any).__fleetWorld;
+    return [world.airportSite.visible, world.bridgeSite.visible, world.rail.visible, world.railBed.visible, world.restingPlaces.rocks.visible];
+  })).toEqual([false, false, true, true, true]);
 });
 
 test("Companion Gate pauses the train and resumes it without resetting play", async ({ page }) => {
@@ -86,6 +131,24 @@ test("Companion Gate pauses the train and resumes it without resetting play", as
 
 test.describe("phone touch", () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test("stage enters and exits fullscreen", async ({ page }) => {
+    await startFreePlay(page);
+    await page.getByRole("button", { name: "Layar penuh" }).tap();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement?.className)).toBe("child-stage");
+    await page.getByRole("button", { name: "Keluar layar penuh" }).tap();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement)).toBeNull();
+  });
+
+  test("shows Home Screen instructions when fullscreen is unavailable", async ({ page }) => {
+    await page.addInitScript(() => { Object.defineProperty(Element.prototype, "requestFullscreen", { value: undefined }); });
+    await startFreePlay(page);
+    page.once("dialog", dialog => {
+      expect(dialog.message()).toContain("Tambahkan ke Layar Utama");
+      void dialog.accept();
+    });
+    await page.getByRole("button", { name: "Cara layar penuh" }).tap();
+  });
 
   test("all three activities respond to visible model taps", async ({ page }) => {
     await startFreePlay(page);
@@ -116,11 +179,11 @@ test.describe("phone touch", () => {
 
   test("portrait and landscape keep the board and choices inside the viewport", async ({ page }) => {
     await startFreePlay(page);
-    for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 320, height: 568 }]) {
+    for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1024, height: 340 }, { width: 320, height: 568 }]) {
       await page.setViewportSize(viewport);
       await expect.poll(async () => {
         const rect = await page.locator("canvas").boundingBox();
-        return rect ? Math.abs(rect.width / rect.height - (viewport.width < viewport.height ? (viewport.width / (viewport.height - 140)) : 16 / 9)) < 0.15 : false;
+        return rect ? Math.abs(rect.width - viewport.width) < 1 && Math.abs(rect.width / rect.height - (viewport.width < viewport.height ? viewport.width / (viewport.height - 140) : viewport.width / viewport.height)) < 0.15 : false;
       }).toBe(true);
       for (const selector of ["canvas", ".activity-picker", "[data-testid='vehicle-action']"]) {
         if (viewport.width > viewport.height && selector.includes("vehicle-action")) continue;

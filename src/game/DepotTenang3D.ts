@@ -47,7 +47,8 @@ const TRAIN_STOP_X = -2.6;
 const PIT_X = -10;
 const UNLOAD_X = -6.1;
 const ROCK_X = [0.7, 2.4, 4.1];
-const FORM_X = [-5, -2.5, 0];
+const FORM_X = -2.5;
+const FORM_Z = [ROAD_Z - 1.1, ROAD_Z, ROAD_Z + 1.1];
 const MIXER_FORM_OFFSET = 3.2;
 const MUD_X = [-1.85, -0.92, 0, 0.92, 1.85];
 const DRUM_AXIS = new THREE.Vector3(0, 0, 1);
@@ -56,7 +57,7 @@ const TRUCK_ACCELERATION = 7;
 const TRUCK_BRAKING = 8;
 const TRUCK_APPROACH_BRAKING = 5;
 const COLORS = {
-  wood: 0xd2a86d, rim: 0x986e43, felt: 0x86a978, road: 0x424949,
+  wood: 0xc89a60, rim: 0x855e3c, felt: 0x6c9569, road: 0x394746,
   roadLine: 0xe7d5a7, rail: 0x52595b, sleeper: 0x79543d, gold: 0xffdb79,
 };
 
@@ -150,6 +151,14 @@ export class DepotTenang3D {
   private readonly restingPlaces = {} as Record<PlayActivity, THREE.Group>;
   private pit = new THREE.Group();
   private rail = new THREE.Group();
+  private felt?: THREE.Mesh;
+  private railBed?: THREE.Mesh;
+  private roadCrossing = new THREE.Group();
+  private bridgeSite = new THREE.Group();
+
+  private airportSite = new THREE.Group();
+  private readonly riverFish: { visual: THREE.Group; tail: THREE.Object3D; x: number; z: number }[] = [];
+  private readonly riverRipples: THREE.Object3D[] = [];
   private hint = new THREE.Group();
   private delivered = 0;
   private bridge = [0, 0, 0];
@@ -176,7 +185,7 @@ export class DepotTenang3D {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.55;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.canvas = this.renderer.domElement;
@@ -235,10 +244,171 @@ export class DepotTenang3D {
     return wrapper;
   }
 
+  private buildRiver(): void {
+    const profile = [
+      { z: -7.4, left: -3.1, right: -1.3 },
+      { z: -5.5, left: -3.7, right: -1.2 },
+      { z: -3.5, left: -3.6, right: -0.8 },
+      { z: -1.5, left: -3.2, right: -0.5 },
+      { z: 0.5, left: -3.9, right: -1.0 },
+      { z: 2.5, left: -4.1, right: -1.0 },
+      { z: 4.25, left: -4, right: -1 },
+      { z: 5.7, left: -4.05, right: -0.95 },
+      { z: 7.4, left: -3.6, right: -1.5 },
+    ];
+    const left = new THREE.SplineCurve(profile.map(point => new THREE.Vector2(point.left, point.z))).getPoints(32);
+    const right = new THREE.SplineCurve(profile.map(point => new THREE.Vector2(point.right, point.z))).getPoints(32);
+    const outline = [...left, ...right.slice().reverse()];
+    const channel = new THREE.Shape(outline);
+    channel.closePath();
+    const river = new THREE.Group();
+    river.name = "Bridge_River";
+
+    const land = new THREE.Shape([
+      new THREE.Vector2(-14.4, -7.4), new THREE.Vector2(14.4, -7.4),
+      new THREE.Vector2(14.4, 7.4), new THREE.Vector2(-14.4, 7.4),
+    ]);
+    const opening = new THREE.Path(outline.slice().reverse());
+    opening.closePath();
+    land.holes.push(opening);
+    const ground = new THREE.Mesh(new THREE.ShapeGeometry(land),
+      new THREE.MeshStandardMaterial({ color: COLORS.felt, roughness: 1, side: THREE.DoubleSide }));
+    ground.rotation.x = Math.PI / 2;
+    ground.position.y = 0.065;
+    ground.receiveShadow = true;
+    river.add(ground);
+
+    for (const [height, color, opacity] of [[-0.004, 0x173e4b, 1], [0.03, 0x28788b, 0.88]] as const) {
+      const surface = new THREE.Mesh(new THREE.ShapeGeometry(channel),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.32, transparent: opacity < 1, opacity, depthWrite: opacity === 1, side: THREE.DoubleSide }));
+      surface.rotation.x = Math.PI / 2;
+      surface.position.y = height;
+      surface.receiveShadow = true;
+      river.add(surface);
+    }
+
+    const bankMaterial = new THREE.MeshStandardMaterial({ color: 0xa68e67, roughness: 1, side: THREE.DoubleSide });
+    const stoneGeometry = new THREE.IcosahedronGeometry(0.22, 0);
+    const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0xbac0ac, roughness: 1 });
+    const reedGeometry = new THREE.ConeGeometry(0.085, 0.38, 5);
+    const reedMaterial = new THREE.MeshStandardMaterial({ color: 0x567b54, roughness: 1 });
+    for (const [edge, side] of [[left, -1], [right, 1]] as const) {
+      const vertices: number[] = [];
+      const indices: number[] = [];
+      edge.forEach((point, index) => {
+        vertices.push(
+          point.x + side * 0.62, 0.068, point.y,
+          point.x + side * 0.22, 0.2, point.y,
+          point.x, 0.015, point.y,
+        );
+        if (index < edge.length - 1) {
+          const start = index * 3;
+          indices.push(start, start + 1, start + 3, start + 1, start + 4, start + 3);
+          indices.push(start + 1, start + 2, start + 4, start + 2, start + 5, start + 4);
+        }
+      });
+      const bankGeometry = new THREE.BufferGeometry();
+      bankGeometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+      bankGeometry.setIndex(indices);
+      bankGeometry.computeVertexNormals();
+      river.add(new THREE.Mesh(bankGeometry, bankMaterial));
+      for (const index of [4, 10, 17, 24, 29]) {
+        const point = edge[index];
+        const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
+        stone.position.set(point.x + side * 0.28, 0.18, point.y);
+        stone.scale.set(1 + (index % 3) * 0.22, 0.56, 0.9);
+        river.add(stone);
+      }
+      for (const index of [7, 15, 27]) {
+        const point = edge[index];
+        const reed = new THREE.Mesh(reedGeometry, reedMaterial);
+        reed.position.set(point.x + side * 0.66, 0.25, point.y);
+        river.add(reed);
+      }
+    }
+
+    const rippleMaterial = new THREE.MeshBasicMaterial({ color: 0xd2ece3, transparent: true, opacity: 0.6 });
+    for (const z of [-6.2, -4.5, -2.1, 0.4, 2.1, 6.5]) {
+      const ripple = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(-2.85, 0.048, z),
+        new THREE.Vector3(-2.5, 0.048, z + 0.15),
+        new THREE.Vector3(-2.15, 0.048, z),
+      );
+      const highlight = new THREE.Mesh(new THREE.TubeGeometry(ripple, 10, 0.02, 4, false), rippleMaterial);
+      river.add(highlight);
+      this.riverRipples.push(highlight);
+    }
+
+    const school = new THREE.Group();
+    school.name = "Bridge_Fish";
+    const bodyGeometry = new THREE.SphereGeometry(0.38, 12, 8);
+    const tailGeometry = new THREE.ConeGeometry(0.22, 0.3, 3);
+    const eyeGeometry = new THREE.SphereGeometry(0.035, 6, 4);
+    const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x253332 });
+    const swimmers = [
+      [-2.3, -5.7, 0xeaa861], [-1.9, -2.4, 0xe8866b],
+      [-2.7, 0.2, 0xf2cf76], [-2.45, 6.5, 0xd7e3c4],
+    ] as const;
+    swimmers.forEach(([x, z, color], index) => {
+      const fish = new THREE.Group();
+      fish.name = `Fish_${index + 1}`;
+      fish.position.set(x, 0.005, z);
+      fish.scale.setScalar(1.5);
+      const material = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+      const body = new THREE.Mesh(bodyGeometry, material);
+      body.scale.set(0.72, 0.12, 1);
+      fish.add(body);
+      const tail = new THREE.Mesh(tailGeometry, material);
+      tail.rotation.x = Math.PI / 2;
+      tail.scale.z = 0.2;
+      tail.position.z = -0.46;
+      fish.add(tail);
+      for (const eyeX of [-0.14, 0.14]) {
+        const eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        eye.position.set(eyeX, 0.045, 0.21);
+        fish.add(eye);
+      }
+      school.add(fish);
+      this.riverFish.push({ visual: fish, tail, x, z });
+    });
+    river.add(school);
+    this.bridgeSite.add(river);
+  }
+
+  private buildAirport(): void {
+    this.airportSite.name = "Airport_Site";
+    const apron = box(this.airportSite, 0xaeb7b0, [13, 0.05, 8.1], [-7.1, 0.09, -1.75]);
+    apron.name = "Airport_Apron";
+    const runway = box(this.airportSite, 0x485552, [13.5, 0.05, 4.8], [6.6, 0.09, -1.05]);
+    runway.name = "Airport_Runway";
+
+    for (const x of [-11, -7, -3]) {
+      box(this.airportSite, 0x87948e, [0.025, 0.006, 7.8], [x, 0.119, -1.75]);
+    }
+    for (const z of [-4.4, 0.9]) {
+      box(this.airportSite, 0xd7e6dd, [12.6, 0.007, 0.09], [6.6, 0.119, z]);
+    }
+    for (let x = 2.5; x < 13; x += 2.25) {
+      box(this.airportSite, 0xf3f4e8, [1.05, 0.008, 0.11], [x, 0.122, -1.75]);
+    }
+    for (const z of [-2.9, -2.15, -1.35, -0.55, 0.2]) {
+      box(this.airportSite, 0xf3f4e8, [0.16, 0.008, 0.47], [0.52, 0.122, z]);
+    }
+    box(this.airportSite, 0xedc96b, [7.3, 0.008, 0.1], [-5.1, 0.122, -0.9]);
+    box(this.airportSite, 0xedc96b, [0.1, 0.008, 3.6], [-7.2, 0.122, -0.9]);
+
+    const serviceEntry = box(this.airportSite, 0x9ea9a2, [2.8, 0.045, 1.15], [-0.4, 0.09, 2.62]);
+    serviceEntry.name = "Airport_Service_Entry";
+    for (const x of [-2.8, -1.8, -0.8]) {
+      box(this.airportSite, 0xe5b75d, [0.18, 0.015, 0.18], [x, 0.13, 1.9]);
+    }
+    this.scene.add(this.airportSite);
+  }
+
   private buildWorld(): void {
-    const sky = new THREE.HemisphereLight(0xffffff, 0xb5aa91, 2.3);
+    const sky = new THREE.HemisphereLight(0xffffff, 0xb5aa91, 1.5);
     this.scene.add(sky);
-    const sun = new THREE.DirectionalLight(0xffefcd, 3.2);
+    const sun = new THREE.DirectionalLight(0xffefcd, 2.1);
     sun.position.set(-8, 22, 13);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -250,10 +420,16 @@ export class DepotTenang3D {
     this.scene.add(sun);
     box(this.scene, COLORS.rim, [30.6, 0.75, 16.6], [0, -0.68, 0]);
     box(this.scene, COLORS.wood, [30, 0.3, 16], [0, -0.16, 0]);
-    box(this.scene, COLORS.felt, [28.8, 0.06, 14.8], [0, 0.035, 0]);
-    box(this.scene, COLORS.road, [28, 0.055, 3.1], [0, 0.1, ROAD_Z]);
-    for (let x = -13; x <= 13; x += 2) box(this.scene, COLORS.roadLine, [0.8, 0.01, 0.055], [x, 0.135, ROAD_Z]);
-    box(this.scene, 0xa88a64, [28, 0.05, 2.35], [0, 0.1, RAIL_Z]);
+    this.felt = box(this.scene, COLORS.felt, [28.8, 0.06, 14.8], [0, 0.035, 0]);
+    box(this.scene, COLORS.road, [10, 0.055, 3.1], [-9, 0.1, ROAD_Z]);
+    box(this.scene, COLORS.road, [15, 0.055, 3.1], [6.5, 0.1, ROAD_Z]);
+    this.roadCrossing.name = "Road_Crossing";
+    box(this.roadCrossing, COLORS.road, [3, 0.055, 3.1], [FORM_X, 0.1, ROAD_Z]);
+    for (let x = -13; x <= 13; x += 2) {
+      box(x >= -4 && x <= -1 ? this.roadCrossing : this.scene, COLORS.roadLine, [0.8, 0.01, 0.055], [x, 0.135, ROAD_Z]);
+    }
+    this.scene.add(this.roadCrossing);
+    this.railBed = box(this.scene, 0xa88a64, [28, 0.05, 2.35], [0, 0.1, RAIL_Z]);
     for (let x = -13.5; x <= 13.5; x += 0.74) box(this.rail, COLORS.sleeper, [0.22, 0.12, 2.0], [x, 0.2, RAIL_Z]);
     for (const z of [RAIL_Z - RAIL_OFFSET, RAIL_Z + RAIL_OFFSET]) box(this.rail, COLORS.rail, [28, 0.12, 0.12], [0, 0.31, z]);
     this.scene.add(this.rail);
@@ -271,6 +447,7 @@ export class DepotTenang3D {
     this.restingPlaces.wash = this.model("env-hangar", 5);
     this.restingPlaces.wash.position.set(-10.25, 0.1, -1.6);
     this.scene.add(...Object.values(this.restingPlaces));
+    this.buildAirport();
 
     this.truck.position.set(this.truckX, 0.15, ROAD_Z);
     this.scene.add(this.truck);
@@ -330,11 +507,29 @@ export class DepotTenang3D {
     this.scene.add(this.pit);
     this.pickables.push(this.pit);
 
-    FORM_X.forEach((x, index) => {
+    this.buildRiver();
+    for (const x of [-4.15, -0.85]) {
+      for (const z of [2.4, 6.1]) box(this.bridgeSite, 0xb6a480, [0.45, 0.48, 0.5], [x, 0.29, z]);
+    }
+    for (const [x, slope] of [[-5.4, 0.16], [0.4, -0.16]]) {
+      const ramp = box(this.bridgeSite, 0x8e8980, [2.8, 0.16, 3.5], [x, 0.3, ROAD_Z]);
+      ramp.rotation.z = slope;
+    }
+    for (const z of [2.4, 6.1]) {
+      box(this.bridgeSite, 0xb6a480, [3, 0.1, 0.12], [FORM_X, 0.7, z]);
+      for (const x of [-3.7, -1.3]) box(this.bridgeSite, 0xb6a480, [0.12, 0.46, 0.12], [x, 0.48, z]);
+    }
+    this.scene.add(this.bridgeSite);
+
+    FORM_Z.forEach((z, index) => {
       const form = this.model("material-concrete-form", 2.9);
-      form.position.set(x, 0.16, 0.6);
-      form.add(pickTarget(form, "form", index, [3.0, 0.75, 2.0], [0, 0.35, 0]));
-      const fill = box(form, 0xa4aca7, [2.45, 0.16, 0.97], [0, 0.22, 0]);
+      form.position.set(FORM_X, 0.16, z);
+      const base = form.getObjectByName("Form_base");
+      if (base) base.visible = false;
+      const previewSlab = form.getObjectByName("Poured_concrete");
+      if (previewSlab) previewSlab.visible = false;
+      form.add(pickTarget(form, "form", index, [3.0, 0.75, 1.15], [0, 0.35, 0]));
+      const fill = box(form, 0x72817e, [2.55, 0.16, 1.35], [0, 0.22, 0]);
       fill.visible = false;
       this.forms.push(form);
       this.concrete.push(fill);
@@ -342,18 +537,18 @@ export class DepotTenang3D {
       this.pickables.push(form);
     });
     this.cargo = this.model("fleet-cargo", 3.6);
-    this.cargo.position.set(this.cargoX, 0.15, 0.6);
+    this.cargo.position.set(this.cargoX, 0.15, ROAD_Z);
     this.scene.add(this.cargo);
     this.cargoWheels = collectRollingWheels(this.cargo);
 
-    this.airplane = this.model("fleet-airplane", 5.1);
-    this.airplane.position.set(-5, 0.16, -0.9);
+    this.airplane = this.model("fleet-airplane", 8);
+    this.airplane.position.set(-3.6, 0.16, -0.9);
     this.propeller = this.airplane.getObjectByName("Airplane_Propeller_Pivot") ?? undefined;
     this.scene.add(this.airplane);
     MUD_X.forEach((x, index) => {
-      const patch = this.model("material-mud-patch", 0.67);
+      const patch = this.model("material-mud-patch", 1.05);
       patch.position.set(x, 1.4 + (index % 2) * 0.08, index % 2 ? 0.3 : -0.35);
-      patch.add(pickTarget(patch, "mud", index, [0.72, 0.65, 0.72], [0, 0.2, 0]));
+      patch.add(pickTarget(patch, "mud", index, [0.9, 0.65, 0.9], [0, 0.2, 0]));
       this.airplane.add(patch);
       this.mud.push(patch);
       this.pickables.push(patch);
@@ -389,9 +584,9 @@ export class DepotTenang3D {
 
   private spawnRocks(): void {
     for (let index = 0; index < 3; index++) {
-      const visual = this.model(`material-stone-${index}` as ModelName, 0.95);
-      visual.position.set(ROCK_X[index], 0.37, RAIL_Z);
-      const target = pickTarget(visual, "rock", this.rocks.length, [1.3, 1.3, 1.3], [0, 0.4, 0]);
+      const visual = this.model(`material-stone-${index}` as ModelName, 1.3);
+      visual.position.set(ROCK_X[index], 0.5, RAIL_Z);
+      const target = pickTarget(visual, "rock", this.rocks.length, [1.6, 1.6, 1.6], [0, 0.5, 0]);
       this.scene.add(visual);
       this.rocks.push({ visual, target, state: "track", from: visual.position.clone(), progress: 0 });
       this.pickables.push(visual);
@@ -438,6 +633,8 @@ export class DepotTenang3D {
     this.supply.position.z = activity === "rocks" ? -0.8 : activity === "build" ? -0.75 : 0;
     for (const name of ["rocks", "build", "wash"] as const) this.truckModels[name].visible = name === activity;
     this.rail.visible = activity === "rocks";
+    if (this.felt) this.felt.visible = activity !== "build";
+    if (this.railBed) this.railBed.visible = activity === "rocks";
     for (const name of ["rocks", "build", "wash"] as const) this.restingPlaces[name].visible = name === activity;
     this.pit.visible = activity === "rocks";
     this.train.visible = activity === "rocks";
@@ -445,6 +642,9 @@ export class DepotTenang3D {
     this.rocks.forEach(rock => { rock.visual.visible = activity === "rocks"; });
     this.blocks.forEach(block => { block.visual.visible = activity === "rocks"; });
     this.forms.forEach(form => { form.visible = activity === "build"; });
+    this.roadCrossing.visible = activity !== "build";
+    this.bridgeSite.visible = activity === "build";
+    this.airportSite.visible = activity === "wash";
     this.cargo.visible = activity === "build" && this.bridge.every(value => value === 1);
     this.airplane.visible = activity === "wash";
     this.mud.forEach((patch, index) => { patch.visible = this.dirty[index]; });
@@ -503,7 +703,7 @@ export class DepotTenang3D {
     if (index < 0 || this.bridge[index] >= 1 || this.pourTarget === index || this.pourQueue.includes(index)) return;
     if (this.pourTarget === undefined) {
       this.pourTarget = index;
-      this.truckTarget = FORM_X[index] + MIXER_FORM_OFFSET;
+      this.truckTarget = FORM_X + MIXER_FORM_OFFSET;
     } else this.pourQueue.push(index);
     this.options.onActionAccepted();
     this.publish();
@@ -550,7 +750,11 @@ export class DepotTenang3D {
       this.tiltTarget = 0;
     } else if (this.activity === "build") {
       this.bridge = [0, 0, 0];
-      this.forms.forEach((_, index) => { this.concrete[index].visible = false; });
+      this.forms.forEach((form, index) => {
+        this.concrete[index].visible = false;
+        const frame = form.getObjectByName("Concrete_Form");
+        if (frame) frame.visible = true;
+      });
       if (this.pourGuide) this.pourGuide.visible = false;
       this.pourGuideTarget = undefined;
       this.cargoX = -12;
@@ -569,7 +773,7 @@ export class DepotTenang3D {
       this.effects.length = 0;
       this.mud.forEach(patch => { patch.visible = true; });
       this.flight = 0;
-      this.airplane.position.set(-5, 0.16, -0.9);
+      this.airplane.position.set(-3.6, 0.16, -0.9);
       this.airplane.rotation.set(0, 0, 0);
     }
     this.options.onActionAccepted();
@@ -686,14 +890,15 @@ export class DepotTenang3D {
     if (this.disposed) return;
     const bounds = this.options.parent.getBoundingClientRect();
     this.portrait = bounds.width < 601 && bounds.height > bounds.width;
-    const width = Math.max(1, this.portrait ? bounds.width : Math.min(bounds.width, bounds.height * 16 / 9));
-    const height = Math.max(1, this.portrait ? bounds.height : width * 9 / 16);
+    const width = Math.max(1, bounds.width);
+    const height = Math.max(1, bounds.height);
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2, 3840 / width);
     this.renderer.setPixelRatio(pixelRatio);
     this.renderer.setSize(width, height, false);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     this.camera.aspect = width / height;
+    this.camera.fov = !this.portrait && this.camera.aspect > 2.2 ? 34 : 38;
     this.camera.updateProjectionMatrix();
     this.updateCamera(1);
   };
@@ -702,11 +907,11 @@ export class DepotTenang3D {
     let target = 0;
     if (this.portrait) {
       if (this.activity === "rocks") target = this.rocks.some(rock => rock.state === "track") ? 2.3 : this.truckX < 3 ? this.truckX - 0.4 : 2.3;
-      else if (this.activity === "build") target = -0.9;
+      else if (this.activity === "build") target = FORM_X;
       else target = -2.6;
     }
     this.focus.x = THREE.MathUtils.lerp(this.focus.x, target, this.options.reducedMotion ? 1 : Math.min(1, dt * 2.8));
-    const offset = this.portrait ? [4.3, 18, 25] : [6.5, 17, 25];
+    const offset = this.portrait ? [4.3, 22, 22] : [6.5, 17, 25];
     this.camera.position.set(this.focus.x + offset[0], offset[1], offset[2]);
     this.camera.lookAt(this.focus.x, 0, 0);
   }
@@ -723,6 +928,17 @@ export class DepotTenang3D {
 
   private update(dt: number): void {
     this.elapsed += dt;
+    if (this.activity === "build" && !this.options.reducedMotion) {
+      this.riverFish.forEach(({ visual, tail, x, z }, index) => {
+        visual.position.x = x + Math.sin(this.elapsed * 0.7 + index * 2) * 0.09;
+        visual.position.z = z + Math.sin(this.elapsed * 0.45 + index * 1.7) * 0.35;
+        visual.rotation.y = (index % 2 ? Math.PI : 0) + Math.sin(this.elapsed * 0.8 + index) * 0.12;
+        tail.rotation.y = Math.sin(this.elapsed * 4 + index) * 0.35;
+      });
+      this.riverRipples.forEach((ripple, index) => {
+        ripple.position.z = Math.sin(this.elapsed * 1.2 + index) * 0.16;
+      });
+    }
     if (this.grabbed?.body && this.grabTarget) {
       const position = this.grabbed.body.translation();
       this.grabbed.body.setLinvel({
@@ -747,7 +963,7 @@ export class DepotTenang3D {
       if (!rock.body) continue;
       const position = rock.body.translation();
       const rotation = rock.body.rotation();
-      rock.visual.position.set(position.x, position.y - 0.36, position.z);
+      rock.visual.position.set(position.x, position.y - 0.5, position.z);
       rock.visual.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
       if (position.y < -1 || Math.abs(position.x) > 14) {
         rock.body.setTranslation({ x: PIT_X, y: 2.5, z: 2.2 }, true);
@@ -762,6 +978,7 @@ export class DepotTenang3D {
       const previousX = this.cargoX;
       this.cargoX = Math.min(3.5, this.cargoX + dt * 1.8);
       this.cargo.position.x = this.cargoX;
+      this.cargo.position.y = 0.15 + 0.4 * Math.min(clamp((this.cargoX + 6.8) / 2.8, 0, 1), clamp((1.8 - this.cargoX) / 2.8, 0, 1));
       rollWheels(this.cargoWheels, this.cargoX - previousX);
       this.cargo.visible = true;
     }
@@ -770,7 +987,7 @@ export class DepotTenang3D {
       if (!this.dirty.some(Boolean) && !this.mud.some(patch => patch.visible) && this.sprayTime === 0) this.flight = Math.min(4, this.flight + dt);
       const t = this.flight / 4;
       const travel = t * t * (3 - 2 * t);
-      this.airplane.position.set(-5 + travel * 18, 0.16 + travel * 10, -0.9 - travel * 3);
+      this.airplane.position.set(-3.6 + travel * 18, 0.16 + travel * 10, -0.9 - travel * 3);
       this.airplane.rotation.z = this.options.reducedMotion ? 0 : Math.sin(Math.PI * t) * 0.12;
       if (this.propeller && this.flight > 0) this.propeller.rotation.x += dt * (this.options.reducedMotion ? 5 : 22);
     }
@@ -800,7 +1017,7 @@ export class DepotTenang3D {
       }
     }
     this.truck.position.x = this.truckX;
-    this.truck.position.y = 0.15;
+    this.truck.position.y = this.activity === "build" ? 0.15 + 0.4 * clamp((1.8 - this.truckX) / 2.8, 0, 1) : 0.15;
     rollWheels(this.truckWheels[this.activity], this.truckX - previousX);
     this.tilt += clamp(this.tiltTarget - this.tilt, -dt * 1.8, dt * 1.8);
     if (this.dumpBed) this.dumpBed.rotation.x = -this.tilt * 38 * Math.PI / 180;
@@ -839,7 +1056,7 @@ export class DepotTenang3D {
     for (const rock of this.rocks) {
       if (rock.state !== "loading" && rock.state !== "bed") continue;
       const slot = rock.bedSlot ?? 0;
-      const offset = (slot % 3) * 0.75;
+      const offset = (slot % 3) * 0.9;
       const slide = rock.state === "bed" ? this.tilt : 0;
       const destination = new THREE.Vector3(
         this.truckX - 0.9 + offset - slide * (1.6 + offset * 0.45),
@@ -867,14 +1084,17 @@ export class DepotTenang3D {
     rock.state = "falling";
     const start = rock.visual.position;
     const body = this.physics.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(start.x, start.y + 0.36, start.z)
+      .setTranslation(start.x, start.y + 0.5, start.z)
       .setLinvel(
         clamp((PIT_X + 0.1 - start.x) / 0.55, -5, -1.5),
         0.4,
         clamp((2.18 - start.z) / 0.55, -2.5, 0),
       )
       .setCcdEnabled(true));
-    this.physics.createCollider(RAPIER.ColliderDesc.ball(0.43).setDensity(3).setFriction(0.75).setRestitution(this.options.reducedMotion ? 0 : 0.02), body);
+    this.physics.createCollider(RAPIER.ColliderDesc.ball(0.58).setDensity(3).setFriction(0.75)
+      .setRestitution(this.options.reducedMotion ? 0 : 0.02)
+      // Rocks collide with the world (group 1), not with other rocks (group 2).
+      .setCollisionGroups(0x0002_0001), body);
     rock.body = body;
     this.delivered++;
     if (!this.rocks.some(item => item.state === "bed" || item.state === "loading")) this.tiltTarget = 0;
@@ -887,7 +1107,7 @@ export class DepotTenang3D {
     const chute = this.truckModels.build.getObjectByName("Mixer_Chute");
     if (!chute || !this.pourGuide) throw new Error("Missing mixer chute");
     const start = chute.getWorldPosition(new THREE.Vector3());
-    const landing = this.forms[index].localToWorld(new THREE.Vector3(0, 0.36, 0));
+    const landing = this.forms[index].localToWorld(new THREE.Vector3(0, 0.55, 0));
     const end = landing.clone().add(new THREE.Vector3(0, 0.12, 0));
     const control = start.clone().lerp(end, 0.5);
     control.x = Math.min(start.x, end.x) - 2;
@@ -904,7 +1124,7 @@ export class DepotTenang3D {
     this.bridge[index] = Math.min(1, this.bridge[index] + dt * 0.66);
     this.concrete[index].visible = true;
     this.concrete[index].scale.y = Math.max(0.04, this.bridge[index]);
-    this.concrete[index].position.y = 0.22 + 0.08 * this.bridge[index];
+    this.concrete[index].position.y = 0.28 + 0.17 * this.bridge[index];
     this.pourClock += dt;
     if (this.pourClock > (this.options.reducedMotion ? 0.3 : 0.1)) {
       this.pourClock = 0;
@@ -914,11 +1134,13 @@ export class DepotTenang3D {
         landing.clone().add(top), control.clone().add(top));
     }
     if (this.bridge[index] !== 1) return;
+    const frame = this.forms[index].getObjectByName("Concrete_Form");
+    if (frame) frame.visible = false;
     this.pourGuide.visible = false;
     this.pourGuideTarget = undefined;
     this.pourTarget = this.pourQueue.shift();
-    if (this.pourTarget !== undefined) this.truckTarget = FORM_X[this.pourTarget] + MIXER_FORM_OFFSET;
-    else if (this.bridge.every(value => value === 1)) this.truckTarget = 2;
+    if (this.pourTarget !== undefined) this.truckTarget = FORM_X + MIXER_FORM_OFFSET;
+    else if (this.bridge.every(value => value === 1)) this.truckTarget = 8;
     this.options.onActionAccepted();
   }
 

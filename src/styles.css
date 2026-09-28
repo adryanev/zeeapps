@@ -400,6 +400,25 @@ h2 {
   justify-content: center;
   background: #fff9ed;
 }
+.child-stage .fullscreen-toggle {
+  position: absolute;
+  top: 56px;
+  right: 8px;
+  z-index: 30;
+  min-width: 116px;
+  height: 44px;
+  padding: 0 10px;
+  border: 2px solid #fff9ed;
+  border-radius: 12px;
+  background: #426e60;
+  color: #fff9ed;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.child-stage .fullscreen-toggle[hidden] { display: none; }
+.child-stage .fullscreen-toggle:focus-visible { outline: 3px solid #b06a39; }
 .child-stage .stage-status {
   position: static;
   display: flex;
@@ -491,9 +510,10 @@ h2 {
     font-size: 14px;
   }
 }
-@media (max-width: 950px) and (max-height: 500px) and (orientation: landscape) {
+@media (max-height: 700px) and (orientation: landscape) {
   .child-stage { display: block; }
   .child-stage .game-mount { height: 100%; }
+  .child-stage .fullscreen-toggle { left: 8px; right: auto; }
   .child-stage .stage-hud {
     position: absolute;
     width: 40%;

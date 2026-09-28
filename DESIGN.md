@@ -4,7 +4,7 @@ Depot Tenang is a 3D wooden vehicle playground for a child around two years old.
 
 ## Diorama
 
-`DepotTenang3D.ts` loads Blender GLB models for vehicles, materials, the station, the garage, the hangar, and trees. Three.js renders the board, road, ground-level rails, lighting, shadows, and touch hints. The station, garage, and hangar each stay clear of the road and rails. One Activity is visible at a time.
+`DepotTenang3D.ts` loads Blender GLB models for vehicles, materials, the station, the garage, the hangar, and trees. Three.js renders the board, road, ground-level rails, lighting, shadows, and touch hints. The railway, river bridge, and airport apron and runway appear with their matching Activities. One Activity is visible at a time.
 
 The camera has a fixed three-quarter view. A portrait phone moves the camera to the current Activity and unload point. The canvas uses the displayed pixel density up to a 3840-pixel width. Pictured Activity buttons and a large action button stay inside the viewport.
 
@@ -17,8 +17,8 @@ The Companion Gate clears an active gesture and pauses animation and physics. Re
 ## Activities
 
 - **Batu & kereta:** three rocks block the railway. Loading the last rock releases the train. The dump truck travels to the pit, where lifting its bed drops separate physical rocks onto wooden blocks.
-- **Bangun jembatan:** touching forms queues three concrete pours. A cargo truck crosses the finished forms.
-- **Cuci pesawat:** touching mud removes five patches. The tanker sprays, then the clean airplane takes off.
+- **Bangun jembatan:** a recessed river with visible, gently swimming fish cuts through the road. Three concrete forms fill the gap between raised approaches; a cargo truck crosses the finished deck.
+- **Cuci pesawat:** the plane waits on a concrete apron beside the hangar, with a runway ahead and a service road for the tanker. Touching mud removes five patches. The tanker sprays, then the clean airplane takes off.
 
 The supply prop resets the active Activity. Fallen rocks remain in the pit during repeated play, with a cap of 21 older rocks. New rocks wait until the train clears the crossing. Switching Activities keeps their results. There is no required order or final state.
 
