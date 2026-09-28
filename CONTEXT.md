@@ -68,6 +68,10 @@ _Avoid_: Vehicle lesson
 A calm Game where the Explorer finds familiar animals behind pictured hiding places and repeats their reactions.
 _Avoid_: Animal lesson, quiz
 
+**Ketuk-Ketuk**:
+A calm Game where each letter A–Z brings a different playful object and motion; other keys and screen taps cycle through the same actions.
+_Avoid_: Typing lesson, score game
+
 **Diorama**:
 Depot Tenang's shared miniature vehicle world, with a road, a railway, and separate vehicle resting places.
 _Avoid_: Map, level, separate scene

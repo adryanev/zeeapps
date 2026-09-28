@@ -42,6 +42,17 @@ export const gameCatalog = [
       ],
     },
   },
+  {
+    id: "ketuk-ketuk",
+    title: "Ketuk-Ketuk",
+    description: "Setiap huruf punya kejutan sendiri. Tekan keyboard atau ketuk layar untuk melihatnya!",
+    companionPrompt: "Coba tekan A, lalu B. Apa yang berubah?",
+    launchLabel: "Mulai Ketuk-Ketuk",
+    artwork: {
+      decorations: ["ketuk-monster", "ketuk-bubble"],
+      layers: [],
+    },
+  },
 ] as const satisfies readonly GameDefinition[];
 
 export type GameId = (typeof gameCatalog)[number]["id"];
