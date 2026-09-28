@@ -9,7 +9,6 @@ test("Ketuk-Ketuk responds to keys and pauses behind the Companion Gate", async 
 
   await page.keyboard.press("a");
   await expect(monster).toHaveAttribute("data-face", "wow");
-  await expect(board.locator(".ketuk-bubble")).toHaveCount(3);
 
   await page.keyboard.down("Shift");
   await page.keyboard.down("Enter");
@@ -33,6 +32,25 @@ test("Ketuk-Ketuk responds to keys and pauses behind the Companion Gate", async 
   await expect(board).toHaveCount(0);
 });
 
+test("every A–Z key has a distinct visible action, even during a keyboard smash", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Mulai Ketuk-Ketuk" }).click();
+  await expect(page.locator(".ketuk-board")).toBeVisible();
+
+  const actions = await page.evaluate(() => [..."abcdefghijklmnopqrstuvwxyz"].map(key => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    const board = document.querySelector<HTMLElement>(".ketuk-board")!;
+    return {
+      key: board.dataset.action,
+      label: board.querySelector(".ketuk-action")?.textContent,
+      icon: board.querySelector(".ketuk-effects")?.lastElementChild?.textContent,
+    };
+  }));
+  expect(actions.map(action => action.key)).toEqual([..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"]);
+  expect(new Set(actions.map(action => action.label)).size).toBe(26);
+  expect(new Set(actions.map(action => action.icon)).size).toBe(26);
+});
+
 test("Ketuk-Ketuk supports phone taps, reduced motion, mute, and offline replay", async ({ page, context }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
@@ -44,6 +62,7 @@ test("Ketuk-Ketuk supports phone taps, reduced motion, mute, and offline replay"
   await expect(page.getByTestId("child-stage")).toHaveAttribute("data-sound-profile", "senyap");
   await board.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 1 });
   await expect(board.locator(".ketuk-monster")).toHaveAttribute("data-face", "wow");
+  await expect(board).toHaveAttribute("data-action", "A");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 
   await context.setOffline(true);

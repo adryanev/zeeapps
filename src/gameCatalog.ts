@@ -45,8 +45,8 @@ export const gameCatalog = [
   {
     id: "ketuk-ketuk",
     title: "Ketuk-Ketuk",
-    description: "Tekan tombol keyboard atau ketuk layar. Monster kecil ini akan melompat dan berkicau!",
-    companionPrompt: "Coba tekan tombol bersama. Wajah apa yang dibuat monster?",
+    description: "Setiap huruf punya kejutan sendiri. Tekan keyboard atau ketuk layar untuk melihatnya!",
+    companionPrompt: "Coba tekan A, lalu B. Apa yang berubah?",
     launchLabel: "Mulai Ketuk-Ketuk",
     artwork: {
       decorations: ["ketuk-monster", "ketuk-bubble"],

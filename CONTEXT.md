@@ -69,7 +69,7 @@ A calm Game where the Explorer finds familiar animals behind pictured hiding pla
 _Avoid_: Animal lesson, quiz
 
 **Ketuk-Ketuk**:
-A calm Game where ordinary keyboard presses or screen taps make one friendly monster react with a gentle hop, chirp, and bubbles.
+A calm Game where each letter A–Z brings a different playful object and motion; other keys and screen taps cycle through the same actions.
 _Avoid_: Typing lesson, score game
 
 **Diorama**:

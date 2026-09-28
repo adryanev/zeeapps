@@ -619,7 +619,8 @@ h2 {
   width: min(72vmin, 420px);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: rgba(255, 250, 225, .55);
+  background: var(--ketuk-glow, rgba(255, 250, 225, .55));
+  transition: background-color .3s ease;
 }
 .ketuk-monster {
   position: relative;
@@ -654,20 +655,42 @@ h2 {
 .ketuk-monster[data-face="wow"] .ketuk-mouth { top: 57%; left: 43%; width: 14%; height: 19%; border: 0; background: #284b5a; }
 .ketuk-monster[data-face="grin"] .ketuk-mouth { left: 34%; width: 32%; height: 13%; border-bottom-width: 10px; }
 .ketuk-monster[data-face="wow"] .ketuk-eye { transform: scale(1.2); }
-.ketuk-effects, .ketuk-effect-group { position: absolute; inset: 0; pointer-events: none; }
-.ketuk-bubble {
+.ketuk-effects { position: absolute; inset: 0; pointer-events: none; }
+.ketuk-effect {
   position: absolute;
-  top: 24%;
-  left: calc(50% + var(--x));
-  width: clamp(16px, 4vmin, 28px);
-  aspect-ratio: 1;
-  border: 3px solid rgba(255,255,255,.8);
-  border-radius: 50%;
-  background: #efbcbd;
-  animation: ketuk-bubble .7s ease-out both;
+  top: 20%;
+  left: 50%;
+  translate: -50% -50%;
+  opacity: 0;
+  font-size: clamp(3rem, 8vmin, 6rem);
+  line-height: 1;
+  filter: drop-shadow(0 5px 4px rgba(53, 96, 91, .2));
 }
-.ketuk-board[data-color="1"] .ketuk-bubble { background: #f5d67f; }
-.ketuk-board[data-color="2"] .ketuk-bubble { background: #b6b6e7; }
+.ketuk-trail {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255, 250, 237, .82);
+  font-size: clamp(1.15rem, 3vmin, 1.7rem);
+  line-height: 1.2;
+}
+.ketuk-trail:empty { display: none; }
+.ketuk-action {
+  position: absolute;
+  right: 12px;
+  bottom: 50px;
+  left: 12px;
+  min-height: 35px;
+  margin: 0;
+  color: #355d5a;
+  font-size: clamp(1.05rem, 3.2vw, 1.45rem);
+  font-weight: 900;
+  text-align: center;
+}
 .ketuk-hint {
   position: absolute;
   right: 12px;
@@ -680,10 +703,9 @@ h2 {
   text-align: center;
 }
 @keyframes ketuk-breathe { 50% { transform: scale(1.035); } }
-@keyframes ketuk-bubble { 0% { opacity: 0; transform: translateY(12px) scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(var(--rise)) scale(1); } }
 .ketuk-board[data-paused="true"] * { animation-play-state: paused !important; }
-.ketuk-board[data-reduced-motion="true"] * { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .ketuk-board * { animation: none !important; } }
+.ketuk-board[data-reduced-motion="true"] * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .ketuk-board * { animation: none !important; transition: none !important; } }
 
 .free-play-controls {
   display: grid;
