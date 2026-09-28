@@ -104,21 +104,21 @@ export function loadKetukKetuk(options: Options): KetukGame {
       (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextConstructor) return;
     audioContext ??= new AudioContextConstructor();
-    if (audioContext.state === "suspended") void audioContext.resume().catch(() => {});
+    if (audioContext.state !== "running") void audioContext.resume().catch(() => {});
     lastSoundAt = performance.now();
     const now = audioContext.currentTime;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
-    oscillator.type = index % 2 === 0 ? "sine" : "triangle";
-    oscillator.frequency.setValueAtTime(320 + index * 18, now);
-    oscillator.frequency.exponentialRampToValueAtTime(420 + index * 18, now + 0.11);
+    oscillator.type = "triangle";
+    oscillator.frequency.setValueAtTime(500 + index * 18, now);
+    oscillator.frequency.exponentialRampToValueAtTime(650 + index * 18, now + 0.13);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.04 * options.volume, now + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.16 * options.volume, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
     oscillator.start(now);
-    oscillator.stop(now + 0.16);
+    oscillator.stop(now + 0.22);
   }
 
   function react(index: number): void {

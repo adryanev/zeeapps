@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+test("Ketuk-Ketuk plays a hearable sound for keys and taps by default", async ({ page }) => {
+  await page.addInitScript(() => {
+    const peaks: number[] = [];
+    (window as Window & { __ketukPeaks: number[] }).__ketukPeaks = peaks;
+    const original = AudioParam.prototype.exponentialRampToValueAtTime;
+    AudioParam.prototype.exponentialRampToValueAtTime = function(value, time) {
+      peaks.push(value);
+      return original.call(this, value, time);
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Mulai Ketuk-Ketuk" }).click();
+  const board = page.locator(".ketuk-board");
+  await expect(board).toBeVisible();
+
+  await page.keyboard.press("a");
+  await page.waitForTimeout(120);
+  await board.dispatchEvent("pointerdown", { pointerType: "touch", pointerId: 1 });
+  const peaks = await page.evaluate(() => (window as Window & { __ketukPeaks: number[] }).__ketukPeaks);
+  expect(peaks.filter(value => value >= 0.06 && value <= 1)).toHaveLength(2);
+});
+
 test("Ketuk-Ketuk responds to keys and pauses behind the Companion Gate", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Mulai Ketuk-Ketuk" }).click();
