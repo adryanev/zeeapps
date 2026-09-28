@@ -143,11 +143,13 @@ test.describe("phone touch", () => {
   test("shows Home Screen instructions when fullscreen is unavailable", async ({ page }) => {
     await page.addInitScript(() => { Object.defineProperty(Element.prototype, "requestFullscreen", { value: undefined }); });
     await startFreePlay(page);
-    page.once("dialog", dialog => {
-      expect(dialog.message()).toContain("Tambahkan ke Layar Utama");
-      void dialog.accept();
-    });
-    await page.getByRole("button", { name: "Cara layar penuh" }).tap();
+    const dialogPromise = page.waitForEvent("dialog");
+    const tapPromise = page.getByRole("button", { name: "Cara layar penuh" }).tap();
+    const dialog = await dialogPromise;
+    const message = dialog.message();
+    await dialog.accept();
+    await tapPromise;
+    expect(message).toContain("Tambahkan ke Layar Utama");
   });
 
   test("all three activities respond to visible model taps", async ({ page }) => {

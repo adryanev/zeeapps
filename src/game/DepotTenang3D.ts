@@ -987,8 +987,10 @@ export class DepotTenang3D {
       if (!this.dirty.some(Boolean) && !this.mud.some(patch => patch.visible) && this.sprayTime === 0) this.flight = Math.min(4, this.flight + dt);
       const t = this.flight / 4;
       const travel = t * t * (3 - 2 * t);
-      this.airplane.position.set(-3.6 + travel * 18, 0.16 + travel * 10, -0.9 - travel * 3);
-      this.airplane.rotation.z = this.options.reducedMotion ? 0 : Math.sin(Math.PI * t) * 0.12;
+      const takeoff = clamp((travel - 0.4) / 0.6, 0, 1);
+      const climb = takeoff * takeoff * (3 - 2 * takeoff);
+      this.airplane.position.set(-3.6 + travel * 18, 0.16 + climb * 10, -0.9 - travel * 3);
+      this.airplane.rotation.z = this.options.reducedMotion ? 0 : Math.sin(Math.PI * takeoff) * 0.12;
       if (this.propeller && this.flight > 0) this.propeller.rotation.x += dt * (this.options.reducedMotion ? 5 : 22);
     }
     this.stepEffects(dt);

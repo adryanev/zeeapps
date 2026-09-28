@@ -87,16 +87,20 @@ test("airplane gains speed gently after washing and levels off at the end", asyn
     world.mud.forEach((patch: any) => { patch.visible = false; });
     world.sprayTime = 0;
     const samples: number[] = [world.airplane.position.x];
+    const apronHeights: number[] = [];
     for (let frame = 1; frame <= 240; frame++) {
       world.update(1 / 60);
+      if (world.airplane.position.x < 0.5) apronHeights.push(world.airplane.position.y);
       if (frame % 12 === 0) samples.push(world.airplane.position.x);
     }
-    return { samples, pitch: world.airplane.rotation.z };
+    return { samples, pitch: world.airplane.rotation.z, apronHeight: Math.max(...apronHeights), finalHeight: world.airplane.position.y };
   });
   const movement = positions.samples.slice(1).map((x, index) => x - positions.samples[index]);
   expect(movement[0]).toBeLessThan(movement[9] * 0.35);
   expect(movement.at(-1)).toBeLessThan(movement[9] * 0.35);
   expect(positions.pitch).toBeCloseTo(0, 2);
+  expect(positions.apronHeight).toBeLessThan(0.25);
+  expect(positions.finalHeight).toBeGreaterThan(5);
 });
 
 test("airplane nose points along the flight path", async ({ page }) => {
