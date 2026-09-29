@@ -64,17 +64,19 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
   let pointerStart: { id: number; x: number; y: number; button: HTMLButtonElement } | undefined;
   let suppressClick = false;
   const mistakes = new Map<string, number>();
+  const voice = new Audio();
 
-  function say(text: string): void {
+  function say(text: string, clip: string): void {
     message.textContent = text;
     options.onStatus(text);
-    if (options.volume === 0 || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "id-ID";
-    utterance.volume = options.volume;
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+    voice.pause();
+    if (options.volume === 0) return;
+    voice.src = import.meta.env.BASE_URL + "assets/beres-beres/voice/" + clip + ".mp3";
+    voice.volume = options.volume;
+    void voice.play().catch(error => {
+      if (error instanceof DOMException && ["AbortError", "NotAllowedError"].includes(error.name)) return;
+      console.error("Beres-Beres Rumah voice could not play", error);
+    });
   }
 
   function choose(item: Item): void {
@@ -86,13 +88,13 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
     items.querySelectorAll<HTMLButtonElement>(".beres-item").forEach(button => {
       button.setAttribute("aria-pressed", String(button.dataset.item === item.image));
     });
-    say(item.label + " ke mana ya?");
+    say(item.label + " ini ditaruh di mana, ya?", item.image);
   }
 
   function place(groupId: string): void {
     if (paused || destroyed || !finish.hidden) return;
     if (!selected) {
-      say("Pilih benda dulu, yuk.");
+      say("Pilih satu benda dulu, yuk.", "pick-first");
       return;
     }
     if (selected.group.id !== groupId) {
@@ -103,7 +105,7 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
           button.classList.toggle("beres-destination--hint", button.dataset.place === selected?.group.id);
         });
       }
-      say("Coba lihat tempat bergambar yang lain.");
+      say("Hmm, coba lihat gambar tempat yang lain, yuk.", "wrong");
       return;
     }
 
@@ -111,16 +113,15 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
     destination.classList.remove("beres-destination--hint");
     destination.classList.add("beres-destination--filled");
     const itemButton = items.querySelector<HTMLButtonElement>('[data-item="' + selected.image + '"]')!;
-    const name = selected.label;
     itemButton.remove();
     selected = undefined;
     placed += 1;
     if (placed === 3) {
-      say("Rumah sudah rapi! Yuk, bermain lagi.");
+      say("Wah, rumahnya rapi! Mau main lagi?", "finish");
       finish.hidden = false;
       replay.focus();
     } else {
-      say(name + " sudah rapi. Pilih benda berikutnya.");
+      say("Nah, pas! Kita pilih benda lain.", "correct");
       items.querySelector<HTMLButtonElement>(".beres-item")?.focus();
     }
   }
@@ -182,7 +183,7 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
       const item: Item = { label, image, group };
       addPictureButton(items, "beres-item", image, label, "item", image, () => choose(item));
     }
-    say("Pilih benda, lalu tempat bergambarnya.");
+    say("Ayo kita bereskan rumah!", "intro");
   }
 
   function onKeyDown(event: KeyboardEvent): void {
@@ -255,12 +256,14 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
         pointerStart?.button.classList.remove("beres-item--dragging");
         if (pointerStart) pointerStart.button.style.translate = "";
         pointerStart = undefined;
-        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+        voice.pause();
       }
     },
     destroy() {
       destroyed = true;
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      voice.pause();
+      voice.removeAttribute("src");
+      voice.load();
       window.removeEventListener("keydown", onKeyDown);
       board.remove();
     },

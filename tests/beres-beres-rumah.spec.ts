@@ -1,5 +1,27 @@
 import { expect, test } from "@playwright/test";
 
+test("spoken prompts use local audio clips instead of the browser voice", async ({ page }) => {
+  await page.addInitScript(() => {
+    const calls = { browserSpeech: 0, clips: [] as string[] };
+    (window as Window & { __beresAudioCalls: typeof calls }).__beresAudioCalls = calls;
+    window.speechSynthesis.speak = () => { calls.browserSpeech += 1; };
+    HTMLMediaElement.prototype.play = function() {
+      calls.clips.push(this.src);
+      return Promise.resolve();
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Mulai Beres-Beres Rumah" }).click();
+  await page.getByRole("button", { name: "Mobil" }).click();
+  const calls = await page.evaluate(() =>
+    (window as Window & { __beresAudioCalls: { browserSpeech: number; clips: string[] } }).__beresAudioCalls);
+  expect(calls.browserSpeech).toBe(0);
+  expect(calls.clips.some(src => src.endsWith("/assets/beres-beres/voice/mobil.mp3"))).toBe(true);
+  for (const clip of ["intro", "pick-first", "wrong", "correct", "finish", "mobil"]) {
+    expect((await page.request.get("/assets/beres-beres/voice/" + clip + ".mp3")).ok()).toBe(true);
+  }
+});
+
 test("Beres-Beres Rumah supports keyboard matching, gentle hints, pause, and replay", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Mulai Beres-Beres Rumah" }).click();
@@ -12,7 +34,9 @@ test("Beres-Beres Rumah supports keyboard matching, gentle hints, pause, and rep
 
   await page.keyboard.press("ArrowRight");
   await expect(items.first()).toBeFocused();
+  const mobilAudio = page.waitForResponse(response => response.url().endsWith("/voice/mobil.mp3"));
   await page.keyboard.press("Enter");
+  expect((await mobilAudio).ok()).toBe(true);
   await expect(items.first()).toHaveAttribute("aria-pressed", "true");
   await board.getByRole("button", { name: "Nampan makanan" }).click();
   await board.getByRole("button", { name: "Nampan makanan" }).click();
@@ -59,6 +83,7 @@ test("all 25 everyday objects appear across repeatable rounds", async ({ page })
       buttons.map(button => (button as HTMLElement).dataset.item!));
     for (const name of names) {
       seen.add(name);
+      expect((await page.request.get("/assets/beres-beres/voice/" + name + ".mp3")).ok()).toBe(true);
       await board.locator('[data-item="' + name + '"]').click();
       await board.locator('[data-place="' + placeFor[name] + '"]').click();
     }
@@ -69,6 +94,13 @@ test("all 25 everyday objects appear across repeatable rounds", async ({ page })
 });
 
 test("phone dragging, mute, reduced motion, and offline replay work", async ({ page, context }) => {
+  await page.addInitScript(() => {
+    (window as Window & { __beresPlayCalls: number }).__beresPlayCalls = 0;
+    HTMLMediaElement.prototype.play = function() {
+      (window as Window & { __beresPlayCalls: number }).__beresPlayCalls += 1;
+      return Promise.resolve();
+    };
+  });
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto("/");
   await page.getByTestId("reduced-motion-toggle").check();
@@ -84,6 +116,7 @@ test("phone dragging, mute, reduced motion, and offline replay work", async ({ p
   await page.mouse.move(destination.x + destination.width / 2, destination.y + destination.height / 2, { steps: 8 });
   await page.mouse.up();
   await expect(board.locator(".beres-item")).toHaveCount(2);
+  expect(await page.evaluate(() => (window as Window & { __beresPlayCalls: number }).__beresPlayCalls)).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 
   await context.setOffline(true);

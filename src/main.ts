@@ -93,6 +93,7 @@ app.innerHTML = `
             </label>
           </section>
           <p><a href="${import.meta.env.BASE_URL}assets/cilukba-hewan/credits.html">Kredit suara Cilukba Hewan</a></p>
+          <p><a href="${import.meta.env.BASE_URL}assets/beres-beres/voice/credits.html">Kredit suara Beres-Beres Rumah</a></p>
         </aside>
       </div>
     </section>
