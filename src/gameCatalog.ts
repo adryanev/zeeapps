@@ -53,6 +53,21 @@ export const gameCatalog = [
       layers: [],
     },
   },
+  {
+    id: "beres-beres-rumah",
+    title: "Beres-Beres Rumah",
+    description: "Pilih benda sehari-hari dan bantu mengembalikannya ke tempat bergambar.",
+    companionPrompt: "Benda ini biasa kita simpan di mana, ya? Yuk, cari bersama.",
+    launchLabel: "Mulai Beres-Beres Rumah",
+    artwork: {
+      decorations: [],
+      layers: [
+        { image: "assets/beres-beres/room.svg", layer: "beres-room" },
+        { image: "assets/beres-beres/friend.svg", layer: "beres-friend" },
+        { image: "assets/beres-beres/mobil.svg", layer: "beres-car" },
+      ],
+    },
+  },
 ] as const satisfies readonly GameDefinition[];
 
 export type GameId = (typeof gameCatalog)[number]["id"];

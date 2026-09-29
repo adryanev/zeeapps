@@ -831,6 +831,7 @@ export class DepotTenang3D {
       if (node?.userData.action) {
         const picked = node.userData as { action: PickAction; index: number };
         if (picked.action === "truck" && this.activity !== "rocks") continue;
+        if (picked.action === "rock" && this.rocks[picked.index]?.state !== "track" && this.rocks[picked.index]?.state !== "falling") continue;
         return picked;
       }
     }

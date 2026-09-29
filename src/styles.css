@@ -242,6 +242,10 @@ h2 {
 .game-card__asset--rabbit { bottom: 15%; right: 10%; width: 37%; }
 .game-card__asset--bush { bottom: -12%; left: 18%; width: 69%; }
 .game-card__art--ketuk-ketuk { background: radial-gradient(circle at 50% 80%, #fff4c7 0 23%, #c8f0e7 24% 100%); }
+.game-card__art--beres-beres-rumah { background: #f8e4c8; }
+.game-card__asset--beres-room { inset: 0; width: 100%; height: 100%; object-fit: cover; filter: none; }
+.game-card__asset--beres-friend { right: 6%; bottom: 8%; width: 30%; }
+.game-card__asset--beres-car { left: 12%; bottom: 4%; width: 26%; }
 .game-card__ketuk-monster {
   position: absolute;
   left: 50%;
@@ -706,6 +710,137 @@ h2 {
 .ketuk-board[data-paused="true"] * { animation-play-state: paused !important; }
 .ketuk-board[data-reduced-motion="true"] * { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) { .ketuk-board * { animation: none !important; transition: none !important; } }
+
+.child-stage[data-game="beres-beres-rumah"] .stage-status { display: none; }
+.child-stage[data-game="beres-beres-rumah"] .fullscreen-toggle { top: 4px; right: 5px; min-width: 96px; }
+.beres-board {
+  box-sizing: border-box;
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(35px, 1fr) auto minmax(92px, 1.4fr) minmax(92px, 1.4fr);
+  gap: clamp(4px, 1.5vh, 12px);
+  width: 100%;
+  height: 100%;
+  padding: 8px 12px 12px;
+  overflow: hidden;
+  background-color: #f6e8d3;
+  background-size: cover;
+  background-position: center;
+  color: #31545a;
+  touch-action: none;
+  user-select: none;
+}
+.beres-board [hidden] { display: none !important; }
+.beres-friend { position: absolute; top: 3%; left: 7%; width: min(20%, 112px); pointer-events: none; }
+.beres-friend img { display: block; width: 100%; }
+.beres-message {
+  grid-row: 2;
+  z-index: 1;
+  justify-self: center;
+  max-width: min(90%, 540px);
+  margin: 0;
+  padding: 5px 12px;
+  border: 2px solid #b89772;
+  border-radius: 18px;
+  background: #fffaf0;
+  box-shadow: 0 3px 0 #d7bc97;
+  font-weight: 800;
+  text-align: center;
+}
+.beres-destinations, .beres-items {
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(5px, 1.4vw, 16px);
+  width: min(100%, 720px);
+  min-height: 0;
+  margin-inline: auto;
+}
+.beres-destinations { grid-row: 3; }
+.beres-items { grid-row: 4; }
+.beres-destination, .beres-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 80px;
+  padding: 3px 5px;
+  border: 3px solid #816c58;
+  border-radius: 20px;
+  background: #fffaf0;
+  box-shadow: 0 4px 0 #bba88b;
+  color: #31545a;
+  font-family: inherit;
+  font-size: clamp(0.72rem, 2.5vw, 1rem);
+  font-weight: 800;
+  line-height: 1.1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.beres-destination { border-color: #497884; background: #eaf7f1; }
+.beres-item { border-color: #ae7250; background: #fff0d8; }
+.beres-destination img, .beres-item img {
+  display: block;
+  min-height: 0;
+  max-height: calc(100% - 24px);
+  width: min(100%, 100px);
+  object-fit: contain;
+  pointer-events: none;
+}
+.beres-destination span, .beres-item span { max-width: 100%; text-align: center; }
+.beres-item[aria-pressed="true"] { outline: 5px solid #ecac38; outline-offset: -5px; }
+.beres-item--dragging { z-index: 4; box-shadow: 0 10px 20px #6c504c55; }
+.beres-destination--filled::after {
+  content: "✓";
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  color: #25715c;
+  font-size: 1.6rem;
+}
+.beres-destination--hint { outline: 5px solid #eca83a; animation: beres-hint .7s ease-in-out 2; }
+@keyframes beres-hint { 50% { transform: scale(1.05); } }
+.beres-board button:focus-visible { outline: 4px solid #c45d27; outline-offset: 2px; }
+.beres-finish {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: #e4f2e5eb;
+}
+.beres-finish__card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(100%, 380px);
+  padding: 16px;
+  border: 3px solid #4b8177;
+  border-radius: 24px;
+  background: #fffaf0;
+  text-align: center;
+}
+.beres-finish__card img { width: min(30vw, 94px); max-height: 94px; }
+.beres-finish__card p { margin: 0; font-weight: 800; }
+.beres-replay {
+  min-height: 48px;
+  padding: 8px 24px;
+  border: 0;
+  border-radius: 14px;
+  background: #426e60;
+  color: white;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.beres-companion { font-size: .85rem; }
+.beres-board[data-paused="true"] * { animation-play-state: paused !important; }
+.beres-board[data-reduced-motion="true"] * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .beres-board * { animation: none !important; transition: none !important; } }
 
 .free-play-controls {
   display: grid;

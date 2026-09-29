@@ -4,7 +4,7 @@ test("the Playroom selects a playable Game and keeps Companion settings outside 
   await page.goto("/");
 
   const list = page.getByTestId("game-list");
-  await expect(list.getByRole("listitem")).toHaveCount(3);
+  await expect(list.getByRole("listitem")).toHaveCount(4);
   const card = page.getByTestId("game-card-depot-tenang");
   await expect(card.getByRole("heading", {name:"Depot Tenang"})).toBeVisible();
   await expect(card.locator(".game-card__asset")).toHaveCount(3);
