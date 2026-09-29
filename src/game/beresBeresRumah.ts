@@ -32,12 +32,6 @@ const GROUPS = [
 type Group = (typeof GROUPS)[number];
 type Item = { label: string; image: string; group: Group };
 
-const ITEM_PROMPTS: Record<string, string> = {
-  krayon: "Krayon warna ini ditaruh di mana, ya?",
-  kuas: "Ini kuas. Taruh di mana, ya?",
-  "sepatu-bot": "Sepatu bot untuk hujan ditaruh di mana, ya?",
-};
-
 const asset = (name: string): string => import.meta.env.BASE_URL + "assets/beres-beres/" + name + ".svg";
 
 export function loadBeresBeresRumah(options: Options): BeresBeresGame {
@@ -94,7 +88,7 @@ export function loadBeresBeresRumah(options: Options): BeresBeresGame {
     items.querySelectorAll<HTMLButtonElement>(".beres-item").forEach(button => {
       button.setAttribute("aria-pressed", String(button.dataset.item === item.image));
     });
-    say(ITEM_PROMPTS[item.image] ?? item.label + " ini ditaruh di mana, ya?", item.image);
+    say("Ayo, cari tempat untuk " + item.label.toLowerCase() + " ini.", item.image);
   }
 
   function place(groupId: string): void {

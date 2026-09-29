@@ -78,21 +78,16 @@ test("all 25 everyday objects appear across repeatable rounds", async ({ page })
     "sepatu-olahraga": "alas-kaki", "sepatu-sekolah": "alas-kaki", "sandal-jepit": "alas-kaki",
     "sandal-bertali": "alas-kaki", "sepatu-bot": "alas-kaki",
   };
-  const clearerPrompts: Record<string, string> = {
-    krayon: "Krayon warna ini ditaruh di mana, ya?",
-    kuas: "Ini kuas. Taruh di mana, ya?",
-    "sepatu-bot": "Sepatu bot untuk hujan ditaruh di mana, ya?",
-  };
   for (let round = 0; round < 9; round++) {
     const names = await board.locator(".beres-item").evaluateAll(buttons =>
       buttons.map(button => (button as HTMLElement).dataset.item!));
     for (const name of names) {
       seen.add(name);
       expect((await page.request.get("/assets/beres-beres/voice/" + name + ".mp3")).ok()).toBe(true);
-      await board.locator('[data-item="' + name + '"]').click();
-      if (clearerPrompts[name]) {
-        await expect(board.locator(".beres-message")).toHaveText(clearerPrompts[name]);
-      }
+      const item = board.locator('[data-item="' + name + '"]');
+      const label = await item.getAttribute("aria-label");
+      await item.click();
+      await expect(board.locator(".beres-message")).toHaveText("Ayo, cari tempat untuk " + label!.toLowerCase() + " ini.");
       await board.locator('[data-place="' + placeFor[name] + '"]').click();
     }
     await expect(board.getByRole("button", { name: "Main lagi" })).toBeVisible();
