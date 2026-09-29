@@ -13,6 +13,27 @@ test("opens a real 3D diorama with Blender vehicles", async ({ page }) => {
   expect(await page.locator("canvas").evaluate(canvas => !(canvas as HTMLCanvasElement).getContext("webgl2")?.isContextLost())).toBe(true);
 });
 
+test("a loading rock does not block tapping another rock", async ({ page }) => {
+  await startFreePlay(page);
+  await attachWorld(page);
+  const picked = await page.evaluate(() => {
+    const world = (window as any).__fleetWorld;
+    const [loading, track] = world.rocks;
+    loading.state = "loading";
+    loading.visual.position.copy(track.visual.position);
+    loading.visual.updateWorldMatrix(true, true);
+    track.target.updateWorldMatrix(true, false);
+    world.camera.updateMatrixWorld();
+    const projected = track.target.getWorldPosition(track.target.position.clone()).project(world.camera);
+    const bounds = world.canvas.getBoundingClientRect();
+    return world.pick({
+      clientX: bounds.x + (projected.x + 1) * bounds.width / 2,
+      clientY: bounds.y + (1 - projected.y) * bounds.height / 2,
+    });
+  });
+  expect(picked).toMatchObject({ action: "rock", index: 1 });
+});
+
 test("rocks clear the track and falling cargo collides with the block pile", async ({ page }) => {
   await startFreePlay(page);
   await attachWorld(page);
