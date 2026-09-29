@@ -17,6 +17,7 @@ import type { FreePlaySnapshot, PlayActivity } from "./game/depotTenangTypes";
 
 import type { CilukbaGame } from "./game/cilukbaHewan";
 import type { KetukGame } from "./game/ketukKetuk";
+import type { BeresBeresGame } from "./game/beresBeresRumah";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -186,6 +187,7 @@ document.addEventListener("fullscreenchange", () => {
 const startButton = getRequiredElement<HTMLButtonElement>("[data-testid='depot-tenang-card']");
 const cilukbaStartButton = getRequiredElement<HTMLButtonElement>("[data-testid='cilukba-hewan-card']");
 const ketukStartButton = getRequiredElement<HTMLButtonElement>("[data-testid='ketuk-ketuk-card']");
+const beresStartButton = getRequiredElement<HTMLButtonElement>("[data-testid='beres-beres-rumah-card']");
 const serviceWorkerError = getRequiredElement<HTMLElement>("[data-testid='service-worker-error']");
 const serviceWorkerRetry = getRequiredElement<HTMLButtonElement>("[data-testid='service-worker-retry']");
 const gameMount = getRequiredElement<HTMLElement>("#game-mount");
@@ -240,9 +242,11 @@ reducedMotionInput.addEventListener("change", () => {
 let game: DepotTenangGame | undefined;
 let cilukbaGame: CilukbaGame | undefined;
 let ketukGame: KetukGame | undefined;
+let beresGame: BeresBeresGame | undefined;
 let activeGameId: GameId | undefined;
 let cilukbaLoadAttempt = 0;
 let ketukLoadAttempt = 0;
+let beresLoadAttempt = 0;
 let isGameLoading = false;
 let isGameReady = false;
 let isCompanionGateOpen = false;
@@ -364,6 +368,7 @@ companionGateReturn.addEventListener("click", returnToPlayroom);
 gameLoadRetry.addEventListener("click", () => {
   if (activeGameId === "cilukba-hewan") void startCilukbaHewan();
   else if (activeGameId === "ketuk-ketuk") void startKetukKetuk();
+  else if (activeGameId === "beres-beres-rumah") void startBeresBeresRumah();
   else void startDepotTenang();
 });
 gameLoadReturn.addEventListener("click", returnToPlayroom);
@@ -372,6 +377,7 @@ const gameLaunchers: Record<GameId, () => void> = {
   "depot-tenang": () => { void startDepotTenang(); },
   "cilukba-hewan": () => { void startCilukbaHewan(); },
   "ketuk-ketuk": () => { void startKetukKetuk(); },
+  "beres-beres-rumah": () => { void startBeresBeresRumah(); },
 };
 document.querySelectorAll<HTMLButtonElement>("[data-game-launch]").forEach(button => {
   const launch = gameLaunchers[button.dataset.gameLaunch as GameId];
@@ -394,11 +400,12 @@ document.addEventListener("visibilitychange", () => {
     game?.setPaused(document.hidden || isCompanionGateOpen);
     cilukbaGame?.setPaused(document.hidden || isCompanionGateOpen);
     ketukGame?.setPaused(document.hidden || isCompanionGateOpen);
+    beresGame?.setPaused(document.hidden || isCompanionGateOpen);
   }
 });
 
 async function startDepotTenang(): Promise<void> {
-  if (game || cilukbaGame || ketukGame || isGameLoading) {
+  if (game || cilukbaGame || ketukGame || beresGame || isGameLoading) {
     return;
   }
 
@@ -470,7 +477,7 @@ async function startDepotTenang(): Promise<void> {
 }
 
 async function startCilukbaHewan(): Promise<void> {
-  if (game || cilukbaGame || ketukGame || isGameLoading) return;
+  if (game || cilukbaGame || ketukGame || beresGame || isGameLoading) return;
 
   const attempt = ++cilukbaLoadAttempt;
   isGameLoading = true;
@@ -530,7 +537,7 @@ async function startCilukbaHewan(): Promise<void> {
 }
 
 async function startKetukKetuk(): Promise<void> {
-  if (game || cilukbaGame || ketukGame || isGameLoading) return;
+  if (game || cilukbaGame || ketukGame || beresGame || isGameLoading) return;
 
   const attempt = ++ketukLoadAttempt;
   isGameLoading = true;
@@ -582,6 +589,66 @@ async function startKetukKetuk(): Promise<void> {
     }
   } finally {
     if (attempt === ketukLoadAttempt) {
+      childStage.setAttribute("aria-busy", "false");
+      isGameLoading = false;
+    }
+  }
+}
+
+async function startBeresBeresRumah(): Promise<void> {
+  if (game || cilukbaGame || ketukGame || beresGame || isGameLoading) return;
+
+  const attempt = ++beresLoadAttempt;
+  isGameLoading = true;
+  isGameReady = false;
+  activeGameId = "beres-beres-rumah";
+  childStage.dataset.game = "beres-beres-rumah";
+  childStage.dataset.soundProfile = companionSettings.soundProfile;
+  childStage.dataset.reducedMotion = String(companionSettings.reducedMotion);
+  getRequiredElement<HTMLElement>("[data-testid='stage-title']").textContent = "Beres-Beres Rumah";
+  gameMount.setAttribute("role", "group");
+  gameMount.setAttribute("aria-label", "Beres-Beres Rumah. Pilih benda, lalu pilih tempat bergambar yang sesuai.");
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-title']").textContent = "Beres-Beres Rumah";
+  getRequiredElement<HTMLElement>("[data-testid='game-loading-message']").textContent = "Rumah sedang disiapkan untuk bermain.";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-title']").textContent = "Beres-Beres Rumah";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-heading']").textContent = "Rumah belum siap";
+  getRequiredElement<HTMLElement>("[data-testid='game-load-error-message']").textContent = "Companion, Beres-Beres Rumah belum bisa dibuka. Coba lagi atau kembali ke Playroom.";
+  beresStartButton.disabled = true;
+  playroom.hidden = true;
+  childStage.hidden = false;
+  childStage.setAttribute("aria-busy", "true");
+  gameLoading.hidden = false;
+  gameLoadError.hidden = true;
+  gameStatus.textContent = "Beres-Beres Rumah sedang dimuat";
+  playControls.hidden = true;
+
+  try {
+    handleServiceWorkerStatus(await serviceWorkerReady);
+    const { loadBeresBeresRumah } = await import("./game/beresBeresRumah");
+    if (attempt !== beresLoadAttempt) return;
+    const loaded = loadBeresBeresRumah({
+      parent: gameMount,
+      reducedMotion: companionSettings.reducedMotion,
+      volume: getSoundProfileVolume(companionSettings.soundProfile),
+      onStatus: status => { gameStatus.textContent = status; },
+    });
+    if (attempt !== beresLoadAttempt) {
+      loaded.destroy();
+      return;
+    }
+    beresGame = loaded;
+    isGameReady = true;
+    loaded.setPaused(isCompanionGateOpen || document.hidden);
+    gameLoading.hidden = true;
+    gameMount.focus();
+  } catch {
+    if (attempt === beresLoadAttempt) {
+      gameLoading.hidden = true;
+      gameLoadError.hidden = false;
+      gameStatus.textContent = "Rumah belum siap. Coba lagi.";
+    }
+  } finally {
+    if (attempt === beresLoadAttempt) {
       childStage.setAttribute("aria-busy", "false");
       isGameLoading = false;
     }
@@ -658,6 +725,7 @@ function openCompanionGate(): void {
     game?.setPaused(true);
     cilukbaGame?.setPaused(true);
     ketukGame?.setPaused(true);
+    beresGame?.setPaused(true);
   }
   companionGate.hidden = false;
   companionGateContinue.focus();
@@ -669,6 +737,7 @@ function closeCompanionGate(): void {
     game?.setPaused(false);
     cilukbaGame?.setPaused(false);
     ketukGame?.setPaused(false);
+    beresGame?.setPaused(false);
   }
   companionGate.hidden = true;
   gameMount.focus();
@@ -679,12 +748,15 @@ function returnToPlayroom(): void {
   if (document.fullscreenElement === childStage) void document.exitFullscreen();
   cilukbaLoadAttempt += 1;
   ketukLoadAttempt += 1;
+  beresLoadAttempt += 1;
   game?.destroy(true);
   cilukbaGame?.destroy();
   ketukGame?.destroy();
+  beresGame?.destroy();
   game = undefined;
   cilukbaGame = undefined;
   ketukGame = undefined;
+  beresGame = undefined;
   activeGameId = undefined;
   isGameLoading = false;
   isGameReady = false;
@@ -695,6 +767,7 @@ function returnToPlayroom(): void {
   startButton.disabled = false;
   cilukbaStartButton.disabled = false;
   ketukStartButton.disabled = false;
+  beresStartButton.disabled = false;
   gameLoading.hidden = true;
   gameLoadError.hidden = true;
   gameStatus.textContent = "Depot sedang dibuka";

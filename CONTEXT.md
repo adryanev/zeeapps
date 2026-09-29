@@ -72,6 +72,10 @@ _Avoid_: Animal lesson, quiz
 A calm Game where each letter A–Z brings a different playful object and motion; other keys and screen taps cycle through the same actions.
 _Avoid_: Typing lesson, score game
 
+**Beres-Beres Rumah**:
+A calm Game where the Explorer matches everyday objects with their pictured places and repeats small rounds of tidying.
+_Avoid_: Sorting lesson, cleanup quiz
+
 **Diorama**:
 Depot Tenang's shared miniature vehicle world, with a road, a railway, and separate vehicle resting places.
 _Avoid_: Map, level, separate scene
