@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dunia-zee",
+  "account_id": "b4e3d0f0e6d6ed22ddccf04711298baa",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" },
+  "routes": [{ "pattern": "playground.adryanev.com", "custom_domain": true }],
+  "workers_dev": false
+}

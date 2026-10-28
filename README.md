@@ -36,6 +36,14 @@ npm run test
 
 The test command creates a production build, starts its preview server on `http://127.0.0.1:4301`, and runs the browser tests. Set `PLAYWRIGHT_PORT` to use another free port.
 
+Deploy to Cloudflare Workers (https://playground.adryanev.com):
+
+```sh
+npm run deploy
+```
+
+Pushes to `main` deploy through GitHub Actions, which needs a `CLOUDFLARE_API_TOKEN` repository secret created from the "Edit Cloudflare Workers" token template.
+
 ## Equivalent Input
 
 Choose one of three pictured activities:
