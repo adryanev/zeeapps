@@ -1,4 +1,4 @@
-name: Deploy GitHub Pages
+name: Deploy Cloudflare Workers
 
 on:
   push:
@@ -10,13 +10,16 @@ permissions:
   contents: read
 
 concurrency:
-  group: github-pages
+  group: cloudflare-workers
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment:
+      name: production
+      url: https://playground.adryanev.com
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -39,31 +42,12 @@ jobs:
       - name: Run browser tests
         run: npm test
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Build GitHub Pages artifact
+      - name: Build production assets
         env:
-          DUNIA_ZEE_BASE_PATH: /zeeapps/
           DUNIA_ZEE_BUILD_VERSION: ${{ github.sha }}
         run: npm run build
 
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to Cloudflare Workers
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy

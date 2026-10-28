@@ -24,7 +24,7 @@ Families open the same hosted website without accounts or child profiles. Depot 
 
 ## Capabilities and constraints
 
-- Depot Tenang uses Three.js and Rapier 3D and deploys as a static GitHub Pages website.
+- Depot Tenang uses Three.js and Rapier 3D and deploys as static assets on Cloudflare Workers at playground.adryanev.com.
 - Keyboard, mouse, trackpad, and one-finger touch must provide Equivalent Input.
 - One Activity receives direct input at a time; other vehicles can react to its results.
 - Touching objects causes visible changes. Vehicles travel automatically to activity destinations. Loose rocks support Soft Grab and bounded physical collisions.
